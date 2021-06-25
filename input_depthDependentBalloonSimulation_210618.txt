@@ -1,0 +1,49 @@
+# values taken from Havlicek2020
+
+number of time points       = 100
+number of depth levels      = 6
+
+V0; F0
+compartment     | arteriole |  venule   |    vein   |
+depth level 0   |           |  2; 2     | 3.5; 2    |
+            1   |           |  2; 2     | 3  ; 2    |
+            2   |           |  2; 2     | 2.5; 2    |
+            3   |           |  2; 2     | 2  ; 2    |
+            4   |           |  2; 2     | 1.5; 2    |
+            5   |           |  2; 2     | 1  ; 2    |
+
+alpha (flow/volume-coupling)
+compartment     | arteriole |  venule   |    vein   |
+depth level 0   |           |   0.35    |     0.05  |
+            1   |           |   0.35    |     0.1   |
+            2   |           |   0.35    |     0.2   |
+            3   |           |   0.35    |     0.2   |
+            4   |           |   0.35    |     0.1   |
+            5   |           |   0.35    |     0.05  |
+
+visco-elastic time constants (in-; deflation)
+compartment     | arteriole |  venule   |    vein   |
+depth level 0   |           |   10; 5   |   10; 5   |
+            1   |           |   10; 5   |   10; 5   |
+            2   |           |   10; 5   |   10; 5   |
+            3   |           |   10; 5   |   10; 5   |
+            4   |           |   10; 5   |   10; 5   |
+            5   |           |   10; 5   |   10; 5   |
+
+BOLD parameters
+parameter       | arteriole |  venule   |    vein   |
+             E0 |  0.35     |   0.2     |   0.2     |
+        epsilon |  0.27     |   0.23    |   0.19    |
+            Hct |  0.35     |   0.38    |   0.41    |
+             r0 |  228      |   232     |   236     |
+
+B0  = 7
+TE  = 28
+dXi = 0.000000264
+
+
+
+
+
+
+
