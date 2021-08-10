@@ -1,15 +1,25 @@
+"""
+@name:      BalloonPlots
+@author:    Sula Spiegel
+@change:    10/08/2021
+
+@summary:   Summary class for possible plots
+            includes functions to plot specific time lines
+"""
+
 import matplotlib.pyplot as plt
 import numpy as np
 
-# summary class for possible plots
 class BalloonPlots:
     def __init__(self, parent):
         self.parent = parent
-        self.input = parent.input
-        self.time = np.linspace(0, self.input.N, self.input.N)
+        self.params = parent.params
+        self.time = np.linspace(0, self.params.N, self.params.N)
     
-    ''' __getDims: get numDepths (-> number of subplots); numCompartments (-> number of plots within a subplot) 
-    return data as 3D [1,1,N], [1,nD,N] or [nC,nD,N] '''
+    ''' __getDims: get dims with:
+                        * numDepths -> number of subplots 
+                        * numCompartments -> number of plots within a subplot 
+                   return dims as 3D [1,1,N], [1,nD,N] or [nC,nD,N] '''
     def __getDims(self, data):
         data = np.squeeze(data)
         if data.ndim == 1:  # 1D data (eg time)
@@ -25,7 +35,8 @@ class BalloonPlots:
             print("ERROR: __getDims can only handle maxDim=3 data.")
             return -1, -1
         return numCompartments, numDepths
-        
+    
+    ''' __plotWithColour: plot each vessel compartment with fitting colour ''' 
     def __plotWithColour(self, axs, x, y, i, numCompartmentsY):
         colors = ['red', 'cornflowerblue', 'navy']  # arteriole, venule, vein
         if numCompartmentsY == 3:
@@ -34,10 +45,10 @@ class BalloonPlots:
             axs.plot(x, y)
 
     ''' __plotSubplots: plot a subplot (corresponding to a depth level)
-    axs: subplot handle
-    sub_x: data on x-axis (1D [N]; could be time)
-    sub_y: data on y-axis (1D [N] or 2D [numCompartments, N])
-    xname, yname: axis titles '''
+            axs: subplot handle
+            sub_x: data on x-axis (1D [N]; could be time)
+            sub_y: data on y-axis (1D [N] or 2D [numCompartments, N])
+            xname, yname: axis titles '''
     def __plotSubplots(self, axs, sub_x, sub_y, xname, yname):
         # make sure sub_y is 2D
         if sub_y.ndim == 1:
@@ -45,15 +56,18 @@ class BalloonPlots:
             sub_y = np.resize(sub_y, (1, sub_y.shape[-1]))
         else: numCompartmentsY = sub_y.shape[0]
         # plot each y-compartment
-        for i in range(0, numCompartmentsY):
-            self.__plotWithColour(axs, sub_x, sub_y[i,:], i, numCompartmentsY)
+        for k in range(0, numCompartmentsY):
+            self.__plotWithColour(axs, sub_x, sub_y[k,:], k, numCompartmentsY)
         axs.grid(True)
         axs.set_xlabel(xname)
         axs.set_ylabel(yname)
 
     ''' plotOverAnother: plot two datasets as x(y) (plot compartments together, depths in subplots)
-    x: independent dataset as 1D [N], 2D [numC, N] or 3D [numC, numD, N] (if 3D, will have numC*numD subplots)
-    y: dependent dataset as 1D [N], 2D [numC, N] or 3D [numC, numD, N] (should have at least as many dims as x) '''
+            x: independent dataset as 1D [N], 2D [numC, N] or 3D [numC, numD, N] 
+                (if 3D, will have numC*numD subplots)
+            y: dependent dataset as 1D [N], 2D [numC, N] or 3D [numC, numD, N] 
+                (should have at least as many dims as x) 
+            xname, yname: axis titles  '''
     def plotOverAnother(self, x, y, xname, yname, title=None):
         # make sure they have same number of elements
         if x.shape[-1] != y.shape[-1]:
@@ -86,9 +100,11 @@ class BalloonPlots:
                 if numColumns == 1: ax = axs[L]
                 else: ax = axs[L, C]
                 self.__plotSubplots(ax, sub_x, sub_y, xname, yname)
-        
+    
+    ''' __getTimeCourse: extracts specific data defined by name 
+            INPUT: varname -> title of plot
+            OUTPUT: [data stored in parent by that name, axis title] '''
     def __getTimeCourse(self, varname):
-        #timecourse = self.parent.exec(varname)
         if varname[0] == 'V' or varname[0] == 'v':
             timecourse = self.parent.volume
             yname = 'v'
@@ -99,15 +115,20 @@ class BalloonPlots:
             timecourse = self.parent.q
             yname = 'q'
         else:
-            print(f"ERROR: BallonPlots.plotOverTime: unknown variable name {varname}.")
-            return 0,0
+            timecourse = getattr(self.parent, varname, -1)
+            yname = varname
+            if len(timecourse) <= 1:
+                print(f"ERROR: BallonPlots.plotOverTime: unknown variable name {varname}.")
+                return 0,0
         return np.squeeze(timecourse), yname
     
-    def plotOverTime(self, varname): # plot volume, flow or q
+    ''' plotOverTime: plot data (volume, flow or q) as time line '''
+    def plotOverTime(self, varname):
         timecourse, yname = self.__getTimeCourse(varname)
         if len(timecourse) > 1:
             self.plotOverAnother(self.time, timecourse, 't', yname, varname)
     
+    ''' plotAll: plot flow, volume and q in one call '''
     def plotAll(self, title=''):
         self.plotOverTime(f'flow, {title}')
         self.plotOverTime(f'volume, {title}')

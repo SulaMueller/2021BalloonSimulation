@@ -1,15 +1,14 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-from class_Input import Input
+from class_Model_Parameters import Model_Parameters
 from class_Balloon import Balloon
 
-input_file = "/input_depthDependentBalloonSimulation_210618.txt"
-input = Input(input_file)
-balloon = Balloon(input)
+parameter_file = "/depthDependentBalloonSimulation_210618.txt"
+params = Model_Parameters(parameter_file)
+balloon = Balloon(params)
 balloon.plots.plotAll('default')
 balloon.plots.plotOverAnother(balloon.flow, balloon.volume, 'flow', 'volume')
-
 
 '''
 f2 = np.ones([1, input.numDepths, input.N])

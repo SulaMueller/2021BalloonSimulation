@@ -1,45 +1,53 @@
-import numpy as np
+"""
+@name:      BOLD
+@author:    Sula Spiegel
+@change:    10/08/2021
 
-gamma0 = 2*np.pi*42.58*pow(10,6)
+@summary:   get BOLD-signal from BALLOON
+"""
+
+import numpy as np
 
 class BOLD:
     def __init__(self, parent):
         self.parent = parent
-        self.input = parent.input
+        self.params = parent.params
         self.__get_scalingConstants()
         self.__get_BOLD()
     
+    ''' __get_scalingConstants: '''
     def __get_scalingConstants(self):
         # ci
-        self.consts = {'cs': np.empty([3, self.input.numCompartments]),
-                       'H0': np.empty([self.input.numDepths]),
-                       'sV0': np.zeros([self.input.numDepths])}
-        for i in range(0, self.input.numCompartments):
-            self.consts['cs'][0,i] = 4.3 * self.input.boldparams['dXi'] * self.input.boldparams['Hct'][i] * gamma0 * self.input.B0 \
-                                 * self.input.E0[i] * self.input.boldparams['TE']
-            self.consts['cs'][1,i] = self.input.boldparams['epsilon'][i] * self.input.boldparams['r0'][i] * self.input.E0[i] * self.input.boldparams['TE']
-            self.consts['cs'][2,i] = 1-self.input.boldparams['epsilon'][i]
+        self.consts = {'cs': np.empty([3, self.params.numCompartments]),
+                       'H0': np.empty([self.params.numDepths]),
+                       'sV0': np.zeros([self.params.numDepths])}
+        for k in range(0, self.params.numCompartments):
+            self.consts['cs'][0,k] = 4.3 * self.params.boldparams['dXi'] * self.params.boldparams['Hct'][k] * self.params.gamma0 * self.params.B0 \
+                                 * self.params.E0[k] * self.params.boldparams['TE']
+            self.consts['cs'][1,k] = self.params.boldparams['epsilon'][k] * self.params.boldparams['r0'][k] * self.params.E0[k] * self.params.boldparams['TE']
+            self.consts['cs'][2,k] = 1-self.params.boldparams['epsilon'][k]
         # H0, sum of V0
-        for k in range(0, self.input.numDepths):
+        for d in range(0, self.params.numDepths):
             sev = 0  # sum of epsilon * V0
-            for i in range(0, self.input.numCompartments):
-                self.consts['sV0'][k] += self.input.V0[i,k]
-                sev += self.input.V0[i,k] * self.input.boldparams['epsilon'][i]
-            self.consts['H0'][k] = 1 / (1 - self.consts['sV0'][i] + sev)
+            for k in range(0, self.params.numCompartments):
+                self.consts['sV0'][d] += self.params.V0[k,d]
+                sev += self.params.V0[k,d] * self.params.boldparams['epsilon'][k]
+            self.consts['H0'][d] = 1 / (1 - self.consts['sV0'][k] + sev)
     
+    ''' __get_BOLD: '''
     def __get_BOLD(self):
-        self.BOLDsignal = np.empty([self.input.numDepths, self.input.N])
-        self.VASOsignal = np.empty([self.input.numDepths, self.input.N])
-        for t in range(0, self.input.N):
-            for k in range(0, self.input.numDepths):
+        self.BOLDsignal = np.empty([self.params.numDepths, self.params.N])
+        self.VASOsignal = np.empty([self.params.numDepths, self.params.N])
+        for t in range(0, self.params.N):
+            for d in range(0, self.params.numDepths):
                 B1 = 0
                 B2 = 0
                 B3 = 0
-                for i in range(0, self.input.numCompartments):
-                    B1 += self.consts['cs'][0,i] * self.input.V0[i,k] * (1-self.parent.q[i,k,t])
-                    B2 += self.consts['cs'][1,i] * self.input.V0[i,k] * (1-self.parent.q[i,k,t]/self.parent.volume[i,k,t])
-                    B3 += self.consts['cs'][2,i] * self.input.V0[i,k] * (1-self.parent.volume[i,k,t])
-                B1 *= (1 - self.consts['sV0'][k])
-                self.BOLDsignal[k,t] = self.consts['H0'][k] * (B1 + B2 + B3)
-                self.VASOsignal[k,t] = self.consts['H0'][k] * B3
+                for k in range(0, self.params.numCompartments):
+                    B1 += self.consts['cs'][0,k] * self.params.V0[k,d] * (1-self.parent.q[k,d,t])
+                    B2 += self.consts['cs'][1,k] * self.params.V0[k,d] * (1-self.parent.q[k,d,t]/self.parent.volume[k,d,t])
+                    B3 += self.consts['cs'][2,k] * self.params.V0[k,d] * (1-self.parent.volume[k,d,t])
+                B1 *= (1 - self.consts['sV0'][d])
+                self.BOLDsignal[d,t] = self.consts['H0'][d] * (B1 + B2 + B3)
+                self.VASOsignal[d,t] = self.consts['H0'][d] * B3
   

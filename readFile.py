@@ -1,69 +1,78 @@
 
+"""
+@name:      readFile
+@author:    Sula Spiegel
+@change:    05/08/2021
 
+@summary:   read information from file in specified format
+"""
 
 import os
 import numpy as np
+from warnings import warn
 
-
+''' getFileText: return total file content as one string '''
 def getFileText(filename):
     thispath = os.path.dirname(os.path.realpath(__file__))
-    with open(thispath + filename,'r') as inputfile:
-        inputtext = inputfile.read()  # total file as string
-    return inputtext
-
+    with open(thispath + filename, 'r') as inputfile:
+        filetext = inputfile.read()  # total file as string
+    return filetext
 
 ''' readFloatFromText
-DESCRIPTION: extracts value/ input from given file-string by designation of
-    value
+DESCRIPTION: extracts value from given file-string by designation of value
 INPUT:
-    * inputtext: content of Input_Parameter_File as string
-    * valuename: name of value that gets extracted (eg 'FILETYPE' or 'SDD')
+    * filetext: content of Parameter_File as string (from getFileText)
+    * valuename: name of value that gets extracted (eg 'FILETYPE' or 'TE')
 OUTPUT:
     * value of designated valuename as float '''
-def readFloatFromText(inputtext, valuename):
-    i = inputtext.find(valuename)  # index of valuename
-    i = inputtext.find('=', i)   # index of = after valuename
-    substring = inputtext[i:-1]
+def readFloatFromText(filetext, valuename):
+    i = filetext.find(valuename)  # index of first valuename
+    i = filetext.find('=', i)   # index of first '=' after valuename
+    substring = filetext[i:-1]
     value = substring.split()  # returns array of all non-space entries
     return float(value[1])  # first entry is '=', second entry should be desired value
 
 ''' readMatrixFromText
-DESCRIPTION: extracts value/ input from given file-string by designation of
-    value
+DESCRIPTION: extracts matrix from given file-string by designation of matrixname
 INPUT:
-    * inputtext: content of Input_Parameter_File as string
+    * filetext: content of Parameter_File as string (from getFileText)
     * valuename: name of value that gets extracted (eg 'N_P')
+    * nVar     : 
+            * if several variables are given in the same table (separated by ; or ,): 
+                 -> take <nVar>th variable
+            * if nVar == -1: take all defined variables (different Vars on dim=2)
+    * numCompartments, numDepths:   size(outmatrix) = [numCompartments x numDepths]
+    * outmatrix: matrix that is returned (should be empty if given)
 OUTPUT:
-    * value of designated valuename (eg [32,32]) '''
-def readMatrixFromText(inputtext, valuename, nVar, numCompartments, numDepths, outmatrix=None):
+    * outmatrix:  [numCompartments, numDepths]; if nVar == -1: [numCompartments, numDepths, numVars]'''
+def readMatrixFromText(filetext, valuename, nVar, numCompartments, numDepths, outmatrix=None):
     # get outmatrix
     if outmatrix is None:
         if nVar == -1:
-            print('ERROR: readMatrixFromText needs nVar or outmatrix as input.')
+            warn('ERROR: readMatrixFromText needs nVar or outmatrix as input.')
             return None
         outmatrix = np.empty([numCompartments, numDepths])
 
-    # find right place in inputtext
-    i = inputtext.find(valuename)  # index of valuename
-    i = inputtext.find('|', i)  # index of first | after valuename
-    substring = inputtext[i:-1]
-    substring.replace(',', ';')  # make sure values are separated by ;
+    # find right place in filetext
+    k = filetext.find(valuename)  # index of valuename
+    k = filetext.find('|', k)  # index of first | after valuename
+    substring = filetext[k:-1]
+    substring = substring.replace(',', ';')  # make sure values are separated by ;
     lines = substring.splitlines()  # get array of lines (first line is header)
 
     # go through all lines 
-    for k in range(0, numDepths):
-        compartments = lines[k+1].split('|')  # get array with single compartments 
-        for i in range(0, numCompartments):
-            if not compartments[i+1].strip(): continue  # continue if only white spaces
-            values = compartments[i+1].split(';')  # get array of single values within compartment
+    for d in range(0, numDepths):
+        compartments = lines[d+1].split('|')  # get array with single compartments 
+        for k in range(0, numCompartments):
+            if not compartments[k+1].strip(): continue  # continue if only white spaces
+            values = compartments[k+1].split(';')  # get array of single values within compartment
 
             # write variables into outmatrix
             if nVar > -1:
-                outmatrix[i,k] = float(values[nVar].strip())
+                outmatrix[k,d] = float(values[nVar].strip())
             else:
                 for v in range(0, outmatrix.shape[2]):
-                    outmatrix[i,k,v] = float(values[v])
-    
+                    outmatrix[k,d,v] = float(values[v])
     return outmatrix
 
 
