@@ -89,15 +89,20 @@ class BalloonPlots:
         y = np.resize(y, (numCompartmentsY, numLines, x.shape[-1]))
         # init figure
         _, axs = plt.subplots(numLines, numColumns)  
+        
         if title is not None:
-            axs[0].set_title(title)
+            if hasattr(axs, '__len__'): a = axs[0]
+            else: a = axs
+            a.set_title(title)
         # for each subplot [numComp, numDepths, N] <-> [numColumns, numLines, N]
         for L in range(0, numLines): 
             for C in range(0, numColumns):
                 sub_x = np.squeeze(x[C,L,:])  # -> 1D
                 if numColumns == 1: sub_y = np.squeeze(y[:,L,:])  # -> 1D or 2D
                 else: sub_y = np.squeeze(y[C,L,:])  # -> 1D
-                if numColumns == 1: ax = axs[L]
+                if numColumns == 1: 
+                    if hasattr(axs, '__len__'): ax = axs[L]
+                    else: ax = axs
                 else: ax = axs[L, C]
                 self.__plotSubplots(ax, sub_x, sub_y, xname, yname)
     

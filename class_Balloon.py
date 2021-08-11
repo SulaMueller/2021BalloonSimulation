@@ -14,10 +14,6 @@ from class_Model_Parameters import Model_Parameters
 from class_BOLD import BOLD
 from class_BalloonPlots import BalloonPlots
 
-DEBUG = 1
-def msg(txt):
-    if DEBUG: print(txt)
-
 class Balloon:
 # ---------------------------------  INIT  ------------------------------------------------
     def __init__(self, params: Model_Parameters):
@@ -39,12 +35,12 @@ class Balloon:
         for k in range(self.params.VENULE, self.params.numCompartments):
             for d in range(0, self.params.numDepths):
                 self.tau0[k,d] = self.params.V0[k,d]/self.params.F0[k,d]
-                for flowdir in range(0,1):
+                for flowdir in range(0,2):
                     self.flowscaling[k,d,flowdir] = \
                         self.params.F0[k,d] * self.params.vet[k,d,flowdir] \
                       + self.params.V0[k,d]
     
-        ''' __init_matrices: initialize all matrices needed for balloon model calculation '''
+    ''' __init_matrices: initialize all matrices needed for balloon model calculation '''
     def __init_matrices(self):
         # use ones, since init values should be 1
         self.volume = np.ones([self.params.numCompartments, self.params.numDepths, self.params.N])
@@ -61,11 +57,12 @@ class Balloon:
     def __get_flowDir(self, k,d):
         if self.dv[k,d] >= 0: self.flowdir = self.params.INFLATION
         else: self.flowdir = self.params.DEFLATION
+        return self.flowdir  # give possibility to save it
 
  # ---------------------  CHECKS FOR TIME LINE CALCULATION --------------------------------
     ''' __isDeepestLayer: return true, if d is index of lowest layer '''
     def __isDeepestLayer(self, d):
-        return d+1 > self.params.numDepths - 1
+        return d+1 == self.params.numDepths
     
     ''' __needDeeperLayers: only need deeper layers for higher layers of veins '''
     def __needDeeperLayers(self, k,d):
@@ -78,7 +75,7 @@ class Balloon:
     
     ''' __getPreviousCompartmentFlowVolume: get part of flow volume coming from previous compartment '''
     def __getPreviousCompartmentFlowVolume(self, k,d,t):
-        return self.params.F0[k,d] * self.params.vet[k,d,self.flowdir] * self.flow[k-1,d,t]
+        return self.params.F0[self.params.VENULE,d] * self.params.vet[k,d,self.flowdir] * self.flow[k-1,d,t]
     
     ''' __getDeeperLayerFlowVolume: get part of flow volume coming from deeper layers '''
     def __getDeeperLayerFlowVolume(self, k,d,t):
@@ -93,6 +90,15 @@ class Balloon:
               + self.__getDeeperLayerFlowVolume(k,d,t) \
             ) / self.flowscaling[k,d,self.flowdir]
             # deeperLayer only for vein
+        if self.__isDeepestLayer(d+1) and k == self.params.VEIN:
+            if self.flowdir == self.params.INFLATION: fd = 'inflation'
+            else: fd = 'deflation'
+            print(f"\nGETTING FLOW. k = {k}, d = {d}, t = {t}, flowdir = {fd}")
+            print(f"Current FlowVolume = {self.__getCurrentFlowVolume(k,d,t)}")
+            print(f"Previous Compartment = {self.__getPreviousCompartmentFlowVolume(k,d,t)}")
+            print(f"Deeper Layer = {self.__getDeeperLayerFlowVolume(k,d,t)}")
+            print(f"Flow Scaling = {self.flowscaling[k,d,self.flowdir]}")
+            print(f"Flow = (Current Flow + PrevComp + Deeper Layer) / Flow Scaling = {self.flow[k,d,t]}")
 
 # ---------------------------------  CALCULATE VOLUME CHANGE  -----------------------------
     ''' __getCurrentFlow: get flow resulting from current depth/compartment '''
@@ -149,7 +155,28 @@ class Balloon:
     ''' __get_balloonVal: general call function to get a single value of the time line;
                           assigns specific function that is to be executed '''
     def __get_balloonVal(self, k,d,t, varname):
-        exec(f"self.__get_{varname}({k},{d},{t})")
+        if varname is 'flow': self.__get_flow(k,d,t)
+        if varname is 'dv': self.__get_dv(k,d,t)
+        if varname is 'dq': self.__get_dq(k,d,t)
+        #exec(f"self.__get_{varname}({k},{d},{t})")
+    
+    ''' __get_oneLayer: get all balloon values for one layer/compartment/time point 
+                        * assign flowdir (in-/deflation) in dependence of last dv
+                        * at the end, check that correct flowdir was used and repeat if not
+                        * use <firstcall> to repeat only once 
+                            (make sure flowdir doesn't swap forth and back) '''
+    def __get_oneLayer(self, k,d,t, firstcall=True):
+        # define variables that are needed and order to calculate them
+        required_vals = ["flow", "dv", "dq"]
+        # get (and save) flow dir from last volume change
+        flowdir_tmp = self.__get_flowDir(k,d)
+        # get required variables
+        for v in range(len(required_vals)):
+            self.__get_balloonVal(k,d,t, required_vals[v])
+        # check, that for this time point flow dir didn't change
+        if self.__get_flowDir(k,d) != flowdir_tmp and firstcall:
+            # if it did change, repeat with correct visco-elastic time constant
+            self.__get_oneLayer(k,d,t, False)
     
         '''__newTimePoint: get next point on time line (for v,q) by log-normal-transformation '''
     def __newTimePoint(self, oldval, d_val):
@@ -166,18 +193,13 @@ class Balloon:
     ''' __get_balloon: use all balloon equations (for all time points) '''
     def __get_balloon(self):
         # init values at start
-        self.__init_matrices()
-        ''' flow, v, q set to 1
-            dv set to 0 '''
+        self.__init_matrices()  # flow, v, q are set to 1, dv is set to 0
         
         # go through time course
-        required_vals = ["flow", "dv", "dq"]
         for t in range(0, self.params.N - 1):
             for k in range(self.params.VENULE, self.params.numCompartments):
-                for d in range(self.params.numDepths-1, -1):
-                    self.__get_flowDir(k,d)
-                    for v in range(len(required_vals)):
-                        self.__get_balloonVal(k,d,t, required_vals[v])
+                for d in range(self.params.numDepths-1, -1, -1):
+                    self.__get_oneLayer(k,d,t)
             self.__update_timePoints(t)
     
     '''__get_extractionFraction: get the extraction fraction for entire time flow 
