@@ -8,16 +8,24 @@
             Compartments: [arteriole, venule, vein]
 """
 
+
+''' TODO: in this model, defining F0 doesn't make much sense. 
+    * give user option to define either V0 or F0
+    * calculate starting arguments (init_values)
+    * develop model, at which point F0s are calculated in order so that f,v(t=0) = 1
+'''
+
 import numpy as np
 import math
-from class_Model_Parameters import Model_Parameters
+from class_ModelParameters import Model_Parameters
 from class_BOLD import BOLD
-from class_BalloonPlots import BalloonPlots
+from class_BalloonPlots import Balloon_Plots
 
 class Balloon:
 # ---------------------------------  INIT  ------------------------------------------------
-    def __init__(self, params: Model_Parameters):
-        self.__init2(params)
+    def __init__(self, params: Model_Parameters, f_arteriole=None):
+        if f_arteriole is None: self.__init2(params)
+        else: self.reset_fArteriole(f_arteriole)  # includes init2
 
     ''' __init2: overloaded init function '''    
     def __init2(self, params: Model_Parameters):
@@ -25,10 +33,19 @@ class Balloon:
         self.__get_priors()
         self.__get_balloon()
         self.bold = BOLD(self)
-        self.plots = BalloonPlots(self)
+        self.plots = Balloon_Plots(self)
+    
+    ''' reset_params: exchange entire model by new model '''
+    def reset_params(self, new_params: Model_Parameters):
+        self.__init2(new_params)
+    
+    ''' reset_fArteriole: calculate new model for differnt inflow '''
+    def reset_fArteriole(self, new_f):
+        self.params.set_fArteriole(new_f)
+        self.__init2(self.params)
 
 # ---------------------------------  PREPARATION  -----------------------------------------
-    ''' __get_priors: get time invariant constants (tau0 = V0/F0; flowscaling) '''
+    ''' __get_priors: get time invariant constants (tau0 = V0/F0; denominator of flow ("flowscaling")) '''
     def __get_priors(self):
         self.tau0 = np.empty([self.params.numCompartments, self.params.numDepths])
         self.flowscaling = np.empty([self.params.numCompartments, self.params.numDepths, 2])
@@ -47,24 +64,34 @@ class Balloon:
         self.flow = np.ones([self.params.numCompartments, self.params.numDepths, self.params.N])
         self.q = np.ones([self.params.numCompartments, self.params.numDepths, self.params.N])
 
-        self.flow[self.params.ARTERIOLE,:,:] = self.params.f_arteriole
-
         # save change values for one iteration
         self.dv = np.zeros([self.params.numCompartments, self.params.numDepths])  # need zero for visco-elastic time constant
         self.dq = np.empty([self.params.numCompartments, self.params.numDepths])
+    
+    def __init_values(self):
+        # arterial inflow
+        self.flow[self.params.ARTERIOLE,:,:] = self.params.f_arteriole
+        # steady-state conditions
+        t = 0
+        for k in range(self.params.VENULE, self.params.numCompartments):
+            for d in range(self.params.numDepths-1, -1, -1):
+                self.flow[k,d,t] = \
+                        self.__getPreviousCompartmentFlow(k,d,t) \
+                    +   self.__getDeeperLayerFlow(k,d,t)
+                self.volume[k,d,t] = math.pow(self.flow[k,d,t], self.params.alpha[k,d])
 
     ''' __get_flowDir: find out, if inflation or deflation (for visco-elastic time constant) '''
     def __get_flowDir(self, k,d):
         if self.dv[k,d] >= 0: self.flowdir = self.params.INFLATION
         else: self.flowdir = self.params.DEFLATION
-        return self.flowdir  # give possibility to save it
+        return self.flowdir  # give possibility to remember it
 
  # ---------------------  CHECKS FOR TIME LINE CALCULATION --------------------------------
     ''' __isDeepestLayer: return true, if d is index of lowest layer '''
     def __isDeepestLayer(self, d):
         return d+1 == self.params.numDepths
     
-    ''' __needDeeperLayers: only need deeper layers for higher layers of veins '''
+    ''' __needDeeperLayers: only need to consider deeper layers for higher layers of veins '''
     def __needDeeperLayers(self, k,d):
         return k == self.params.VEIN and not self.__isDeepestLayer(d)
 
@@ -75,7 +102,7 @@ class Balloon:
     
     ''' __getPreviousCompartmentFlowVolume: get part of flow volume coming from previous compartment '''
     def __getPreviousCompartmentFlowVolume(self, k,d,t):
-        return self.params.F0[self.params.VENULE,d] * self.params.vet[k,d,self.flowdir] * self.flow[k-1,d,t]
+        return self.params.vet[k,d,self.flowdir] * self.params.F0[self.params.VENULE,d] * self.flow[k-1,d,t]
     
     ''' __getDeeperLayerFlowVolume: get part of flow volume coming from deeper layers '''
     def __getDeeperLayerFlowVolume(self, k,d,t):
@@ -90,13 +117,14 @@ class Balloon:
               + self.__getDeeperLayerFlowVolume(k,d,t) \
             ) / self.flowscaling[k,d,self.flowdir]
             # deeperLayer only for vein
-        if self.__isDeepestLayer(d+1) and k == self.params.VEIN:
+        if self.__isDeepestLayer(d+1) and k == self.params.VEIN and False:
             if self.flowdir == self.params.INFLATION: fd = 'inflation'
             else: fd = 'deflation'
             print(f"\nGETTING FLOW. k = {k}, d = {d}, t = {t}, flowdir = {fd}")
             print(f"Current FlowVolume = {self.__getCurrentFlowVolume(k,d,t)}")
             print(f"Previous Compartment = {self.__getPreviousCompartmentFlowVolume(k,d,t)}")
-            print(f"Deeper Layer = {self.__getDeeperLayerFlowVolume(k,d,t)}")
+            print(f"Deeper Layer Flow = {self.flow[k,d+1,t]}")
+            print(f"Deeper Layer FVol= {self.__getDeeperLayerFlowVolume(k,d,t)}")
             print(f"Flow Scaling = {self.flowscaling[k,d,self.flowdir]}")
             print(f"Flow = (Current Flow + PrevComp + Deeper Layer) / Flow Scaling = {self.flow[k,d,t]}")
 
@@ -107,10 +135,7 @@ class Balloon:
     
     ''' __getPreviousCompartmentFlow: get flow resulting from previous compartment '''
     def __getPreviousCompartmentFlow(self, k,d,t):
-        prevComp_flow = self.__getCurrentFlow(k-1,d,t)
-        if self.__needDeeperLayers(k,d):
-            prevComp_flow *= self.params.F0[k-1,d] / self.params.F0[k,d]
-        return prevComp_flow
+        return self.__getCurrentFlow(k-1,d,t) * self.params.F0[k-1,d] / self.params.F0[k,d]
     
     ''' __getDeeperLayerFlow: get part of flow coming from deeper layers '''
     def __getDeeperLayerFlow(self, k,d,t):
@@ -124,7 +149,6 @@ class Balloon:
                 + self.__getDeeperLayerFlow(k,d,t) \
                 - self.__getCurrentFlow(k,d,t) \
             ) / self.tau0[k,d]
-        # deeperLayer only for vein
     
 # ---------------------------------  CALCULATE DEOXY CHANGE  ------------------------------
     ''' __getCurrentHbV: get Hb/v in current depth/compartment '''
@@ -134,7 +158,8 @@ class Balloon:
     ''' __getPreviousCompartmentHbV: get Hb/v in previous compartment '''
     def __getPreviousCompartmentHbV(self, k,d,t):
         if k == self.params.VENULE:
-            return (self.__getCurrentHbV(k-1,d,t) + self.params.n - 1) / self.params.n
+            fa = self.flow[self.params.ARTERIOLE,d,t]
+            return (fa + self.params.n - 1) / (self.params.n * fa)  # divide by fa because it'll be multiplied in dq 
         return self.__getCurrentHbV(k-1,d,t)
     
     ''' __getDeeperLayerHbV: get Hb/v from deeper layer '''
@@ -156,15 +181,16 @@ class Balloon:
                           assigns specific function that is to be executed '''
     def __get_balloonVal(self, k,d,t, varname):
         if varname is 'flow': self.__get_flow(k,d,t)
-        if varname is 'dv': self.__get_dv(k,d,t)
-        if varname is 'dq': self.__get_dq(k,d,t)
+        elif varname is 'dv': self.__get_dv(k,d,t)
+        elif varname is 'dq': self.__get_dq(k,d,t)
+        else: print(f"__get_balloonVal({varname}) not implemented -> ignoring call")
         #exec(f"self.__get_{varname}({k},{d},{t})")
     
     ''' __get_oneLayer: get all balloon values for one layer/compartment/time point 
                         * assign flowdir (in-/deflation) in dependence of last dv
                         * at the end, check that correct flowdir was used and repeat if not
                         * use <firstcall> to repeat only once 
-                            (make sure flowdir doesn't swap forth and back) '''
+                            (make sure flowdir doesn't swap forth and back infinitely) '''
     def __get_oneLayer(self, k,d,t, firstcall=True):
         # define variables that are needed and order to calculate them
         required_vals = ["flow", "dv", "dq"]
@@ -178,7 +204,7 @@ class Balloon:
             # if it did change, repeat with correct visco-elastic time constant
             self.__get_oneLayer(k,d,t, False)
     
-        '''__newTimePoint: get next point on time line (for v,q) by log-normal-transformation '''
+    ''' __newTimePoint: get next point on time line (for v,q) by log-normal-transformation '''
     def __newTimePoint(self, oldval, d_val):
         return oldval * math.exp(self.params.dt * d_val / oldval)
     
@@ -194,6 +220,7 @@ class Balloon:
     def __get_balloon(self):
         # init values at start
         self.__init_matrices()  # flow, v, q are set to 1, dv is set to 0
+        self.__init_values()  # make sure steady-state conditions are met
         
         # go through time course
         for t in range(0, self.params.N - 1):
@@ -240,7 +267,7 @@ class Balloon:
         dq = np.empty([params.numCompartments])
         for t in range(0, params.N):
             # change parameters
-            for d in range(params.numDepths-1, -1):
+            for d in range(params.numDepths-1, -1, -1):
                 dv[1] = self.flow[0,d,t] - self.flow[1,d,t]   # venule
                 dq[1] = self.flow[0,d,t] * self.E[d,t] / params.E0[1] - self.flow[1,d,t] * self.q[1,d,t] / self.volume[1,d,t]
 
@@ -263,13 +290,3 @@ class Balloon:
                     self.q[k,d,t] += dq[k]
                     self.__get_flow_from_volume(params, k, d, t, dv[k])
                     '''
-
-# ----------------------------------- CHANGE MODEL ----------------------------------------
-    ''' reset_params: exchange entire model by new model '''
-    def reset_params(self, new_params: Model_Parameters):
-        self.__init2(new_params)
-    
-    ''' reset_fArteriole: calculate new model for differnt inflow '''
-    def reset_fArteriole(self, new_f):
-        self.params.set_fArteriole(new_f)
-        self.__init2(self.params)

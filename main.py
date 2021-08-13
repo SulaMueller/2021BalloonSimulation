@@ -1,7 +1,7 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-from class_Model_Parameters import Model_Parameters
+from class_ModelParameters import Model_Parameters
 from class_Balloon import Balloon
 
 parameter_file = "/depthDependentBalloonSimulation_210618.txt"
@@ -22,6 +22,4 @@ balloon.plots.plotAll('2')
 '''
 
 plt.show()
-balloon.plots.plotAll('default')
-balloon.plots.plotAll('default')
 print("Done.")

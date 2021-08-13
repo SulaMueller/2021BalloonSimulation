@@ -1,5 +1,5 @@
 """
-@name:      BalloonPlots
+@name:      Balloon_Plots
 @author:    Sula Spiegel
 @change:    10/08/2021
 
@@ -10,7 +10,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-class BalloonPlots:
+class Balloon_Plots:
     def __init__(self, parent):
         self.parent = parent
         self.params = parent.params
