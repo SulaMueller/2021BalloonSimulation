@@ -20,20 +20,24 @@ class Model_Parameters:
         self.INFLATION = 0  # for visco-elastic time constant
         self.DEFLATION = 1
 
+        self.priorityOfCompartments = [self.VEIN, self.ARTERIOLE, self.VENULE]
         self.numCompartments = len(self.COMPARTMENTS)
-
         self.__parse_parameterFile(parameter_file)
         self.__check_flowSanity()
 
         if f_arteriole is None: self.__read_fArteriole()
         else: self.set_fArteriole(f_arteriole)
 
+        delattr(self, 'priorityOfCompartments')
+        
+
     ''' __init_matrices: initialize all matrices needed '''
     def __init_matrices(self):
         self.V0 = np.zeros([self.numCompartments, self.numDepths])
         self.F0 = np.zeros([self.numCompartments, self.numDepths])
-        self.alpha = np.empty([self.numCompartments, self.numDepths])
-        self.vet = np.empty([self.numCompartments, self.numDepths, 2])  # visco-elastic time-constants for in-/deflation
+        self.tau0 = np.zeros([self.numCompartments, self.numDepths])
+        self.alpha = np.ones([self.numCompartments, self.numDepths])
+        self.vet = np.ones([self.numCompartments, self.numDepths, 2])  # visco-elastic time-constants for in-/deflation
     
     ''' __parse_val: read a single value from the parameter file ''' 
     def __parse_val(self, varname):
@@ -45,15 +49,24 @@ class Model_Parameters:
 
     ''' __parse_parameterFile: read all required parameters from the parameter file '''
     def __parse_parameterFile(self, filename):
-        self.filetext = getFileText(filename)  # gets total file as string
+        # get total file as string
+        self.filetext = getFileText(filename)  
+        # get basic variables
         self.N = int(self.__parse_val("number of time points"))
         self.dt = self.__parse_val("time integration step (dt)")
-        self.numDepths = int(self.__parse_val("number of depth levels"))
+        self.numDepths, haveNumDepths = self.__parse_val("number of depth levels")
+        if not haveNumDepths: 
+            warn('Number of Depth levels not defined.')
+            self.numDepths = 6
+        self.numDepths = int(self.numDepths)
+        # get balloon matrices
         self.__init_matrices()
         self.__parse_matrix('V0', 0, self.V0)
-        self.__parse_matrix('F0', 1, self.F0)
+        self.__parse_matrix('F0', 0, self.F0)
+        self.__parse_matrix('t0', 0, self.tau0)
         self.__parse_matrix('alpha', 0, self.alpha)
         self.__parse_matrix('visco-elastic time constants', -1, self.vet)
+        # get BOLD-parameters
         numBOLDparams = int(self.__parse_val("number of BOLD parameters"))
         boldparams_tmp = readMatrixFromText(self.filetext, 'BOLD', 0, self.numCompartments, numBOLDparams)
         self.E0 = boldparams_tmp[:,0]
@@ -68,32 +81,88 @@ class Model_Parameters:
             'gamma0': 2*np.pi*42.58*pow(10,6)
         }
     
-    ''' __compareValues: compare two values with each other and make sure they are the same 
-                            * set both to k_default if they are not the same '''
-    def __compareValues(self, valuematrix, k1, k2, k_default, d, errormessage=''):
-        if valuematrix[k1, d] != valuematrix[k2, d]:
-            if valuematrix[k1, d] == 0: 
-                valuematrix[k1, d] = valuematrix[k2, d]
-            elif valuematrix[k2, d] == 0:
-                valuematrix[k2, d] = valuematrix[k1, d]
-            else:
-                if len(errormessage) > 0: warn(errormessage)
-                valuematrix[k1, d] = valuematrix[k_default, d]
-                valuematrix[k2, d] = valuematrix[k_default, d]
+    ''' __listIncludesCompartment: return, whether a specific compartment is included in a list
+                * example for k_list: [k1,k2] '''
+    def __listIncludesCompartment(self, k_list, compartment):
+        return any(k == compartment for k in k_list)
     
-    ''' __check_flowSanity: make sure, that F0_v == F0_a and F0_d(K) = F0_v(K) (K: deepest layer) '''
-    def __check_flowSanity(self):
-        # F0_venule = F0_arteriole
-        k_default = self.VENULE
-        for d in range(0, self.numDepths):
-            errormessage = f"F0_arteriole({d}) != F0_venule({d}). Setting both to F0_venule (= {self.F0[k_default, d]})"
-            self.__compareValues(self.F0, self.ARTERIOLE, self.VENULE, k_default, d, errormessage)
-            
-        # F0_vein(numDepths-1) = F0_venule(numDepths-1)
-        k_default = self.VENULE
-        d = self.numDepths -1
-        errormessage = f"F0_vein(K) != F0_venule(K). Setting both to F0_venule (= {self.F0[k_default, d]})"
-        self.__compareValues(self.F0, self.VENULE, self.VEIN, k_default, d, errormessage)
+    ''' __needDeeperLayerFormula: F0 resting state condition requires deeper layer for veins (except deepest layer) '''
+    def __needDeeperLayerFormula(self, k_list, d):
+        return self.__listIncludesCompartment(k_list, self.VEIN) and d<self.numDepths-1
+    
+    ''' __getOtherCompartment: extract k that is NOT the given compartment from a given list '''
+    def __getOtherCompartment(self, k_list, compartment):
+        for k in k_list: 
+            if k != compartment: return k
+    
+    ''' __flowMeetsCondition: check if resting state conditions are met for two specific F0s'''
+    def __flowMeetsCondition(self, k1, k2, d):
+        if not self.__needDeeperLayerFormula([k1, k2], d):
+            return self.F0[k1,d] == self.F0[k2,d]
+        else:
+            k_other = self.__getOtherCompartment([k1, k2], self.VEIN)
+            return self.F0[self.VEIN,d] == self.F0[k_other,d] + self.F0[self.VEIN,d+1]
+    
+    ''' __findBlueprintVal: return the compartment that will be used as blueprint 
+            -> compartment that has been changed since init of matrix or default, if both '''
+    def __findBlueprintVal(self, matrix, k1, k2, k_default, d, initVal):
+        # both or none has been filled -> return k_default
+        if matrix[k1,d] == initVal and matrix[k2,d] == initVal or \
+            matrix[k1,d] != initVal and matrix[k2,d] != initVal: 
+            return k_default
+        # one has been filled and the other one not -> return the changed index
+        for k in [k1, k2]: 
+            if matrix[k,d] != initVal: return k
+    
+    ''' __makeFlowMeetCondition_oneCompartment: change value of one compartment so that flow meets resting state conditions '''
+    def __makeFlowMeetCondition_oneCompartment(self, k1, k2, k_default, d, initVal):
+        # check for specific value, that k_default exists
+        k_blueprint = self.__findBlueprintVal(self.F0, k1, k2, k_default, d, initVal)
+        # if not in higher layers of vein, set both equal
+        if not self.__needDeeperLayerFormula([k1, k2], d):
+            self.F0[k1,d] = self.F0[k_blueprint,d]
+            self.F0[k2,d] = self.F0[k_blueprint,d]
+        else:  
+            # for higher layers of vein, need different formula
+            k_other = self.__getOtherCompartment([k1, k2], self.VEIN)
+            if k_blueprint == k_other:  
+                # change value of vein
+                self.F0[self.VEIN,d] = self.F0[k_other,d] + self.F0[self.VEIN,d+1]
+            else:
+                # change value of other
+                self.F0[k_other,d] = self.F0[self.VEIN,d] - self.F0[self.VEIN,d+1]
+    
+    ''' __makeFlowMeetConditions: change value of all compartments so that flow meets resting state conditions '''
+    def __makeFlowMeetConditions(self, k_blueprint, initVal):
+        for d in range(self.numDepths-1, -1, -1):
+            for k in range(0, self.numCompartments):
+                if k==k_blueprint: continue
+                self.__makeFlowMeetCondition_oneCompartment(k, k_blueprint, k_blueprint, d, initVal)
+
+    ''' __haveCompartment: return True, if entire compartment of matrix is not in initial matrix conditions '''
+    def __haveCompartment(self, matrix, compartment, initVal):
+        return sum(matrix[compartment,:]) != self.numDepths * initVal
+
+    ''' __getInitialFlow: make sure, all F0s meet steady-state conditions '''
+    def __getInitialFlow(self):
+        # check, which compartments are defined
+        initVal = 0  # since matrices initialised as 0
+        haveCompartments = np.zeros([self.numCompartments], 'bool')
+        for k in range(0, self.numCompartments):
+            haveCompartments[k] = self.__haveCompartment(self.F0, k, 1)
+        # define the ground truth compartment
+        if sum(haveCompartments) == 0: 
+            # if no compartment has values, set F0_arteriole to ones and use as basis
+            k_blueprint = self.ARTERIOLE
+            self.F0[self.ARTERIOLE,:] = 1
+        else:
+            # define priority of compartments, then use the available one with highest priority as basis
+            for k in range(0, self.numCompartments):
+                if haveCompartments[self.priorityOfCompartments[k]]:
+                    k_blueprint = k
+                    break
+        # make sure all conditions are met
+        self.__makeFlowMeetConditions(k_blueprint, initVal)
 
     ''' set_fArteriole: assign a given array <f_new> to f_arteriole '''
     def set_fArteriole(self, f_new):
