@@ -4,11 +4,12 @@ import numpy as np
 from class_ModelParameters import Model_Parameters
 from class_Balloon import Balloon
 
+
 parameter_file = "/depthDependentBalloonSimulation_210618.txt"
 params = Model_Parameters(parameter_file)
 balloon = Balloon(params)
 balloon.plots.plotAll('default')
-#balloon.plots.plotOverAnother(balloon.flow, balloon.volume, 'flow', 'volume')
+balloon.plots.plotOverAnother(balloon.flow, balloon.volume, 'flow', 'volume')
 balloon.plots.plotOverAnother(balloon.plots.time, balloon.flow[params.VENULE, :,:], 't', 'flow', title='venule')
 balloon.plots.plotOverAnother(balloon.plots.time, balloon.flow[params.VEIN, :,:], 't', 'flow', title='vein')
 

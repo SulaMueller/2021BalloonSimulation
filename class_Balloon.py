@@ -8,15 +8,12 @@
             Compartments: [arteriole, venule, vein]
 """
 
-
-''' TODO: in this model, defining F0 doesn't make much sense. 
-    * give user option to define either V0 or F0
-    * calculate starting arguments (init_values)
-    * develop model, at which point F0s are calculated in order so that f,v(t=0) = 1
+''' TODO: q, BOLD, log-normal
 '''
 
 import numpy as np
 import math
+from warnings import warn
 from class_ModelParameters import Model_Parameters
 from class_BOLD import BOLD
 from class_BalloonPlots import Balloon_Plots
@@ -45,13 +42,11 @@ class Balloon:
         self.__init2(self.params)
 
 # ---------------------------------  PREPARATION  -----------------------------------------
-    ''' __get_priors: get time invariant constants (tau0 = V0/F0; denominator of flow ("flowscaling")) '''
+    ''' __get_priors: get time invariant constants (denominator of flow ("flowscaling")) '''
     def __get_priors(self):
-        self.tau0 = np.empty([self.params.numCompartments, self.params.numDepths])
         self.flowscaling = np.empty([self.params.numCompartments, self.params.numDepths, 2])
         for k in range(self.params.VENULE, self.params.numCompartments):
             for d in range(0, self.params.numDepths):
-                self.tau0[k,d] = self.params.V0[k,d]/self.params.F0[k,d]
                 for flowdir in range(0,2):
                     self.flowscaling[k,d,flowdir] = \
                         self.params.F0[k,d] * self.params.vet[k,d,flowdir] \
@@ -68,6 +63,7 @@ class Balloon:
         self.dv = np.zeros([self.params.numCompartments, self.params.numDepths])  # need zero for visco-elastic time constant
         self.dq = np.empty([self.params.numCompartments, self.params.numDepths])
     
+    ''' __init_values: get initial values (t=0) '''
     def __init_values(self):
         # arterial inflow
         self.flow[self.params.ARTERIOLE,:,:] = self.params.f_arteriole
@@ -117,16 +113,6 @@ class Balloon:
               + self.__getDeeperLayerFlowVolume(k,d,t) \
             ) / self.flowscaling[k,d,self.flowdir]
             # deeperLayer only for vein
-        if self.__isDeepestLayer(d+1) and k == self.params.VEIN and False:
-            if self.flowdir == self.params.INFLATION: fd = 'inflation'
-            else: fd = 'deflation'
-            print(f"\nGETTING FLOW. k = {k}, d = {d}, t = {t}, flowdir = {fd}")
-            print(f"Current FlowVolume = {self.__getCurrentFlowVolume(k,d,t)}")
-            print(f"Previous Compartment = {self.__getPreviousCompartmentFlowVolume(k,d,t)}")
-            print(f"Deeper Layer Flow = {self.flow[k,d+1,t]}")
-            print(f"Deeper Layer FVol= {self.__getDeeperLayerFlowVolume(k,d,t)}")
-            print(f"Flow Scaling = {self.flowscaling[k,d,self.flowdir]}")
-            print(f"Flow = (Current Flow + PrevComp + Deeper Layer) / Flow Scaling = {self.flow[k,d,t]}")
 
 # ---------------------------------  CALCULATE VOLUME CHANGE  -----------------------------
     ''' __getCurrentFlow: get flow resulting from current depth/compartment '''
@@ -148,7 +134,7 @@ class Balloon:
             (     self.__getPreviousCompartmentFlow(k,d,t) \
                 + self.__getDeeperLayerFlow(k,d,t) \
                 - self.__getCurrentFlow(k,d,t) \
-            ) / self.tau0[k,d]
+            ) / self.params.tau0[k,d]
     
 # ---------------------------------  CALCULATE DEOXY CHANGE  ------------------------------
     ''' __getCurrentHbV: get Hb/v in current depth/compartment '''
@@ -173,7 +159,7 @@ class Balloon:
             (     self.__getPreviousCompartmentFlow(k,d,t) * self.__getPreviousCompartmentHbV(k,d,t) \
                 + self.__getDeeperLayerFlow(k,d,t) * self.__getDeeperLayerHbV(k,d,t) \
                 - self.__getCurrentFlow(k,d,t) * self.__getCurrentHbV(k,d,t) \
-            ) / self.tau0[k,d]
+            ) / self.params.tau0[k,d]
         # deeperLayer only for vein
     
 # ----------------------------- HELPERS FOR MODEL CALCULATION  ----------------------------
@@ -183,8 +169,7 @@ class Balloon:
         if varname is 'flow': self.__get_flow(k,d,t)
         elif varname is 'dv': self.__get_dv(k,d,t)
         elif varname is 'dq': self.__get_dq(k,d,t)
-        else: print(f"__get_balloonVal({varname}) not implemented -> ignoring call")
-        #exec(f"self.__get_{varname}({k},{d},{t})")
+        else: warn(f"__get_balloonVal({varname}) not implemented -> ignoring call")
     
     ''' __get_oneLayer: get all balloon values for one layer/compartment/time point 
                         * assign flowdir (in-/deflation) in dependence of last dv
