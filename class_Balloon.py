@@ -15,33 +15,28 @@ import numpy as np
 import math
 from warnings import warn
 from class_ModelParameters import Model_Parameters
+from class_inputTimeline import Input_Timeline
 from class_BOLD import BOLD
 from class_BalloonPlots import Balloon_Plots
 
 class Balloon:
 # ---------------------------------  INIT  ------------------------------------------------
-    def __init__(self, params: Model_Parameters, f_arteriole=None):
-        if f_arteriole is None: self.__init2(params)
-        else: self.reset_fArteriole(f_arteriole)  # includes init2
-
-    ''' __init2: overloaded init function '''    
-    def __init2(self, params: Model_Parameters):
+    def __init__(self, params: Model_Parameters, input_TimeLine: Input_Timeline):
         self.params = params
+        self.inputTL = input_TimeLine
+
+        self.__check_input()
         self.__get_priors()
         self.__get_balloon()
         self.bold = BOLD(self)
         self.plots = Balloon_Plots(self)
-    
-    ''' reset_params: exchange entire model by new model '''
-    def reset_params(self, new_params: Model_Parameters):
-        self.__init2(new_params)
-    
-    ''' reset_fArteriole: calculate new model for differnt inflow '''
-    def reset_fArteriole(self, new_f):
-        self.params.set_fArteriole(new_f)
-        self.__init2(self.params)
 
 # ---------------------------------  PREPARATION  -----------------------------------------
+    ''' __check_input: make sure, f_arteriole is given '''
+    def __check_input(self):
+        if not self.inputTL.available_input[self.inputTL.INDEX_FLOW]:
+            raise Exception('Balloon model needs f_arteriole as input. Calculate neural model first or give arterial flow directly.')
+
     ''' __get_priors: get time invariant constants (denominator of flow ("flowscaling")) '''
     def __get_priors(self):
         self.flowscaling = np.empty([self.params.numCompartments, self.params.numDepths, 2])
@@ -66,7 +61,7 @@ class Balloon:
     ''' __init_values: get initial values (t=0) '''
     def __init_values(self):
         # arterial inflow
-        self.flow[self.params.ARTERIOLE,:,:] = self.params.f_arteriole
+        self.flow[self.params.ARTERIOLE,:,:] = self.inputTL.f_arteriole
         # steady-state conditions
         t = 0
         for k in range(self.params.VENULE, self.params.numCompartments):
@@ -214,6 +209,9 @@ class Balloon:
                     self.__get_oneLayer(k,d,t)
             self.__update_timePoints(t)
     
+
+
+# ------------------------------------- DEPRECEATED  -------------------------------------
     '''__get_extractionFraction: get the extraction fraction for entire time flow 
     # todo: is this relation valid in the new model?
     def __get_extractionFraction(self, params: Model_Parameters):

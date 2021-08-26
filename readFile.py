@@ -34,6 +34,14 @@ def readFloatFromText(filetext, valuename):
     value = substring.split()  # returns array of all non-space entries
     return float(value[1]), True  # first entry is '=', second entry should be desired value
 
+def readStringFromText(filetext, valuename):
+    i = filetext.find(valuename)  # index of first valuename
+    i = filetext.find('=', i)   # index of first '=' after valuename
+    if i==-1: return '', False
+    substring = filetext[i:-1]
+    value = substring.split()  # returns array of all non-space entries
+    return value[1], True  # first entry is '=', second entry should be desired value
+
 ''' readMatrixFromText
 DESCRIPTION: extracts matrix from given file-string by designation of matrixname
 INPUT:

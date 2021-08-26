@@ -9,10 +9,10 @@
 
 import numpy as np
 from warnings import warn
-from readFile import getFileText, readFloatFromText, readMatrixFromText
+from readFile import getFileText, readFloatFromText, readStringFromText, readMatrixFromText
 
 class Model_Parameters:
-    def __init__(self, parameter_file, f_arteriole=None):
+    def __init__(self, parameter_file: str):
         self.COMPARTMENTS = {"ARTERIOLE", "VENULE", "VEIN"}
         self.ARTERIOLE = 0
         self.VENULE = 1
@@ -23,10 +23,7 @@ class Model_Parameters:
         self.numCompartments = len(self.COMPARTMENTS)
         self.__parse_parameterFile(parameter_file)
         self.__completeInput()
-
-        if f_arteriole is None: self.__read_fArteriole()
-        else: self.set_fArteriole(f_arteriole)
-
+        
 # ---------------------------------  EXPLICIT READ-IN  ----------------------------------------
     ''' __init_matrices: initialize all matrices needed '''
     def __init_matrices(self):
@@ -203,28 +200,3 @@ class Model_Parameters:
         for k in range(0, self.numCompartments):
             if k==k_groundTruth: continue
             self.__makeFlowMeetCondition_oneCompartment(k, k_groundTruth, d)
-
-# ---------------------------------  SET F_ARTERIOLE  -----------------------------------------
-    ''' set_fArteriole: assign a given array <f_new> to f_arteriole '''
-    def set_fArteriole(self, f_new):
-        self.f_arteriole = f_new
-
-    ''' __read_fArteriole: initial assignement of f_arteriole (read from parameter file)'''
-    def __read_fArteriole(self):
-        numSections = int(self.__parse_val("number of flow sections")[0])
-        numAxis = 2  # time, flow
-        timeaxis = 0
-        flowaxis = 1
-        flowparams = np.empty([numAxis, self.numDepths, numSections])
-        readMatrixFromText(self.filetext, 'number of flow sections', -1, numAxis, self.numDepths, flowparams)
-
-        f_arteriole = np.empty([1, self.numDepths, self.N])  # need first dim for easy copying to flow-array
-        for d in range(0, self.numDepths):
-            for s in range(0, numSections):
-                t0 = int(flowparams[timeaxis, d, s])
-                if s < numSections - 1: t1 = int(flowparams[timeaxis, d, s+1])
-                else: t1 = self.N
-                if t0 < self.N:
-                    f_arteriole[0, d, t0:t1] = flowparams[flowaxis, d, s]
-        self.set_fArteriole(f_arteriole)
-    
