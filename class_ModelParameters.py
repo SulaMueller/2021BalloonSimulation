@@ -9,7 +9,7 @@
 
 import numpy as np
 from warnings import warn
-from readFile import getFileText, readFloatFromText, readStringFromText, readMatrixFromText
+from readFile import getFileText, readValFromText, readMatrixFromText
 
 class Model_Parameters:
     def __init__(self, parameter_file: str):
@@ -40,44 +40,43 @@ class Model_Parameters:
             'vet' : 1 }
 
     ''' __parse_val: read a single value from the parameter file ''' 
-    def __parse_val(self, varname):
-        return readFloatFromText(self.filetext, varname)
+    def __parse_val(self, varname, typestring='float'):
+        return readValFromText(self.filetext, varname, typestring)
     
     ''' __parse_matrix: read an entire matrix from the parameter file '''
     def __parse_matrix(self, varname, nVar, outmatrix):
-        return readMatrixFromText(self.filetext, varname, nVar, self.numCompartments, self.numDepths, outmatrix)
+        return readMatrixFromText(self.filetext, varname, self.numCompartments, self.numDepths, nVar, outmatrix)
 
     ''' __parse_parameterFile: read all required parameters from the parameter file '''
     def __parse_parameterFile(self, filename):
         # get total file as string
         self.filetext = getFileText(filename)  
         # get basic variables
-        self.N = int(self.__parse_val("number of time points")[0])
-        self.dt = self.__parse_val("time integration step (dt)")[0]
-        self.numDepths, haveNumDepths = self.__parse_val("number of depth levels")
-        if not haveNumDepths: 
+        self.N = self.__parse_val("number of time points", 'int')
+        self.dt = self.__parse_val("time integration step (dt)")
+        self.numDepths = self.__parse_val("number of depth levels", 'int')
+        if self.numDepths is None: 
             warn('Number of Depth levels not defined.')
             self.numDepths = 6
-        self.numDepths = int(self.numDepths)
         # get balloon matrices
         self.__init_matrices()
-        self.__parse_matrix('V0', 0, self.V0)[0]
-        self.__parse_matrix('F0', 0, self.F0)[0]
-        self.__parse_matrix('tau0', 0, self.tau0)[0]
-        self.__parse_matrix('alpha', 0, self.alpha)[0]
-        self.__parse_matrix('visco-elastic time constants', -1, self.vet)[0]
+        self.__parse_matrix('V0', 0, self.V0)
+        self.__parse_matrix('F0', 0, self.F0)
+        self.__parse_matrix('tau0', 0, self.tau0)
+        self.__parse_matrix('alpha', 0, self.alpha)
+        self.__parse_matrix('visco-elastic time constants', -1, self.vet)
         # get BOLD-parameters
-        numBOLDparams = int(self.__parse_val("number of BOLD parameters")[0])
-        boldparams_tmp = readMatrixFromText(self.filetext, 'BOLD', 0, self.numCompartments, numBOLDparams)[0]
+        numBOLDparams = self.__parse_val("number of BOLD parameters", 'int')
+        boldparams_tmp = readMatrixFromText(self.filetext, 'BOLD', self.numCompartments, numBOLDparams, 0)
         self.E0 = boldparams_tmp[:,0]
-        self.B0 = self.__parse_val("B0")[0]
-        self.n = self.__parse_val("n-ratio")[0]
+        self.B0 = self.__parse_val("B0")
+        self.n = self.__parse_val("n-ratio")
         self.boldparams = {
             'epsilon': boldparams_tmp[:,1],
             'Hct': boldparams_tmp[:,2],
             'r0': boldparams_tmp[:,3],
-            'dXi': self.__parse_val("dXi")[0],
-            'TE': self.__parse_val("TE")[0],
+            'dXi': self.__parse_val("dXi"),
+            'TE': self.__parse_val("TE"),
             'gamma0': 2*np.pi*42.58*pow(10,6) }
 
 # ---------------------------------  CHECK IF INPUT IS VIABLE  -------------------------------- 

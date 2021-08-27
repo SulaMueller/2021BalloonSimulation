@@ -12,7 +12,7 @@
 
 import numpy as np
 from warnings import warn
-from readFile import getFileText, readFloatFromText, readStringFromText, readMatrixFromText
+from readFile import getFileText, readValFromText, readMatrixFromText
 from class_ModelParameters import Model_Parameters
 
 class Input_Timeline:
@@ -37,21 +37,15 @@ class Input_Timeline:
         if inputtype == self.INDEX_FLOW: self.__set_fArteriole(v_new)
         if inputtype == self.INDEX_NEURO: self.__set_neural(v_new)
         self.available_input[inputtype] = True 
-    
-    ''' __parse_val: read a single value from the parameter file ''' 
-    def __parse_val(self, varname):
-        return readFloatFromText(self.filetext, varname)
 
     ''' read_input_fromFile: read f_arteriole or neuro from parameter-file '''
     def read_input_fromFile(self):
         # prepare read-in
-        numSections = int(self.__parse_val("number of input sections")[0])
         numAxis = 2  # time, value
         timeaxis = 0
         valueaxis = 1
-        sections = np.empty([numAxis, self.params.numDepths, numSections])
-        readMatrixFromText(self.filetext, 'number of input sections', \
-            -1, numAxis, self.params.numDepths, sections)
+        sections = readMatrixFromText(self.filetext, 'type of input', numAxis, self.params.numDepths)
+        numSections = sections.shape[2]
 
         # read individual sections
         entire_timeline = np.empty([self.params.numDepths, self.params.N])
@@ -64,7 +58,7 @@ class Input_Timeline:
                     entire_timeline[d, t0:t1] = sections[valueaxis, d, s]
         
         # write timeline to matching structure
-        input_type = readStringFromText(self.filetext, 'type of input')[0]
+        input_type = readValFromText(self.filetext, 'type of input', 'str')
         if not any([x for x in self.INPUT_TYPES if input_type in x or x in input_type]): 
             raise Exception(f'Unrecognized input type. Give any of {self.INPUT_TYPES}.')
         for i in range(0, len(self.INPUT_TYPES)):

@@ -8,14 +8,13 @@ number of depth levels      = 6
 INPUT TIMELINE (can be arterial flow or neural activation)
 
 type of input ('flow'/'neural') = n
-number of input sections = 3
                 |  time points of change  |  input after this point |
-depth level 0   |  0, 20, 60              |  1, 1.2, 1              |
-depth level 1   |  0, 20, 60              |  1, 1.2, 1              |
-depth level 2   |  0, 20, 60              |  1, 1.2, 1              |
-depth level 3   |  0, 20, 60              |  1, 1.2, 1              |
-depth level 4   |  0, 20, 60              |  1, 1.2, 1              |
-depth level 5   |  0, 20, 60              |  1, 1.2, 1              |
+depth level 0   |  0, 20, 60              |  0.0; 1.0; 0.0          |
+depth level 1   |  0, 20, 60              |  0.0; 1.0; 0.0          |
+depth level 2   |  0, 20, 60              |  0.0; 1.0; 0.0          |
+depth level 3   |  0, 20, 60              |  0.0; 1.0; 0.0          |
+depth level 4   |  0, 20, 60              |  0.0; 1.0; 0.0          |
+depth level 5   |  0, 20, 60              |  0.0; 1.0; 0.0          |
 
 -------------------------------------------------------------------------
 FLOW + VOLUME RESTING STATE
@@ -87,11 +86,5 @@ B0  = 7 [T]
 TE  = 28 [ms]
 dXi = 0.000000264
 n-ratio = 4
-
-
-
-
-
-
 
 

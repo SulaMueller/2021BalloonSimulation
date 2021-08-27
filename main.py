@@ -6,15 +6,20 @@ from class_NeuralParameters import Neural_Parameters
 from class_inputTimeline import Input_Timeline
 from class_NeuralModel import Neural_Model
 from class_Balloon import Balloon
+from writeFile import changeInputFunction
 
 # parameter files
 parameter_file = "/depthDependentBalloonSimulation_210618.txt"
 neural_parameter_file = "/NeuralParameters_210812.txt"
+input_function_file = parameter_file
 
 # read in parameters
 params = Model_Parameters(parameter_file)
 neural_params = Neural_Parameters(neural_parameter_file)
-input_TimeLine = Input_Timeline(params, parameter_file)
+
+# read input function from file
+changeInputFunction(input_function_file, params.numDepths, new_type='n')
+input_TimeLine = Input_Timeline(params, input_function_file)
 
 # create neural model
 neural_model = Neural_Model(neural_params, params, input_TimeLine)
