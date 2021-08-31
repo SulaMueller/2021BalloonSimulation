@@ -9,6 +9,7 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
+from warnings import warn
 
 class Balloon_Plots:
     def __init__(self, parent):
@@ -21,20 +22,42 @@ class Balloon_Plots:
                         * numCompartments -> number of plots within a subplot 
                    return dims as 3D [1,1,N], [1,nD,N] or [nC,nD,N] '''
     def __getDims(self, data):
+        orig_datashape = data.shape
         data = np.squeeze(data)
         if data.ndim == 1:  # 1D data (eg time)
             numCompartments = 1
             numDepths = 1
-        elif data.ndim == 2:  # 2D data -> can be plotted in single subplot
-            numCompartments = data.shape[0]  # assume [numC, N]
-            numDepths = 1
-        elif data.ndim == 3:  # need several subplots
-            numCompartments = data.shape[0]
-            numDepths = data.shape[1]  # assume [numC, numD, N]
+        elif data.ndim == 2:   # 2D data -> can be plotted in single subplot
+            if len(orig_datashape) == 3:  # have a look at original data
+                numCompartments = orig_datashape[0]  # assume [numC, numD, N]
+                numDepths = orig_datashape[1]
+            else:
+                numCompartments = 1
+                numDepths = data.shape[0]  # assume [numC/D, N]
+        elif data.ndim == 3: 
+            numCompartments = data.shape[0]  # assume [numC, numD, N]
+            numDepths = data.shape[1]
         else:
-            print("ERROR: __getDims can only handle maxDim=3 data.")
+            warn("ERROR: __getDims can only handle maxDim=3 data.")
             return -1, -1
         return numCompartments, numDepths
+    
+    ''' __checkDimsMatch: check if x and y have same length '''
+    def __checkDimsMatch(self, x, y, xname, yname):
+        if x.shape[-1] != y.shape[-1]:
+            warn(f"SHAPE ERROR: plotOverAnother({xname}({yname})) -> {xname} and {yname} need same length.")
+            return False
+        if x.ndim > y.ndim:
+            warn(f"SHAPE ERROR: plotOverAnother({xname}({yname})) -> {xname} needs at most as many dims as {yname}.")
+            return False
+        return True
+    
+    ''' __checkShapesMatch check, that number of depths+compartments are either identical or 1 for x,y '''
+    def __checkShapesMatch(self, numCompartmentsX, numDepthsX, numCompartmentsY, numDepthsY, xname, yname):
+        if (numCompartmentsX != numCompartmentsY and numCompartmentsX != 1) or (numDepthsX != numDepthsY and numDepthsX != 1):
+            warn(f"SHAPE ERROR: plotOverAnother({xname}({yname})) -> size({xname}) needs to be 1 or same as {yname} on every dim.")
+            return False
+        return True
     
     ''' __plotWithColour: plot each vessel compartment with fitting colour ''' 
     def __plotWithColour(self, axs, x, y, i, numCompartmentsY):
@@ -69,27 +92,24 @@ class Balloon_Plots:
                 (should have at least as many dims as x) 
             xname, yname: axis titles  '''
     def plotOverAnother(self, x, y, xname, yname, title=None):
-        # make sure they have same number of elements
-        if x.shape[-1] != y.shape[-1]:
-            print(f"SHAPE ERROR: plotOverAnother({xname}({yname})) -> {xname} and {yname} need same length.")
-            return
-        if x.ndim > y.ndim:
-            print(f"SHAPE ERROR: plotOverAnother({xname}({yname})) -> {xname} needs at most as many dims as {yname}.")
-            return
         # get dims
         numCompartmentsX, numDepthsX = self.__getDims(x)
         numCompartmentsY, numDepthsY = self.__getDims(y)
-        if (numCompartmentsX != numCompartmentsY and numCompartmentsX != 1) or (numDepthsX != numDepthsY and numDepthsX != 1):
-            print(f"SHAPE ERROR: plotOverAnother({xname}({yname})) -> size({xname}) needs to be 1 or same as {yname} on every dim.")
+        # make sure x and y can be plotted together
+        if not self.__checkDimsMatch(x, y, xname, yname) or \
+           not self.__checkShapesMatch(\
+            numCompartmentsX, numDepthsX, numCompartmentsY, numDepthsY, xname, yname):
             return
+        # get shape of plot
         numLines = numDepthsY
         numColumns = numCompartmentsX
-        # make sure x and y are 3D
-        x = np.resize(x, (numCompartmentsX, numLines, x.shape[-1]))
-        y = np.resize(y, (numCompartmentsY, numLines, x.shape[-1]))
+        numTimepoints = x.shape[-1]
+        # convert x and y into 3D
+        x = np.resize(x, (numCompartmentsX, numLines, numTimepoints))
+        y = np.resize(y, (numCompartmentsY, numLines, numTimepoints))
         # init figure
         _, axs = plt.subplots(numLines, numColumns)  
-        
+        # set title
         if title is not None:
             if hasattr(axs, '__len__'): a = axs[0]
             else: a = axs
@@ -103,41 +123,53 @@ class Balloon_Plots:
                 if numColumns == 1: 
                     if hasattr(axs, '__len__'): ax = axs[L]
                     else: ax = axs
+                elif numLines == 1:
+                    if hasattr(axs, '__len__'): ax = axs[C]
+                    else: ax = axs
                 else: ax = axs[L, C]
                 self.__plotSubplots(ax, sub_x, sub_y, xname, yname)
     
     ''' __getTimeCourse: extracts specific data defined by name 
             INPUT: varname -> title of plot
             OUTPUT: [data stored in parent by that name, axis title] '''
-    def __getTimeCourse(self, varname):
-        if varname[0] == 'V' or varname[0] == 'v':
-            timecourse = self.parent.volume
-            yname = 'v'
-        elif varname[0] == 'f' or varname[0] == 'F':
-            timecourse = self.parent.flow
-            yname = 'f'
-        elif varname[0] == 'q' or varname[0] == 'Q' or varname[0] == 'o' or varname[0] == 'O':
-            timecourse = self.parent.q
-            yname = 'q'
-        else:
+    def __getTimeCourse(self, varname, depth):
+        # define cases
+        attrs = ['v', 'f', 'q']
+        keys = {
+            attrs[0]: [['v', 'V'], 'volume'],
+            attrs[1]: [['f', 'F'], 'flow'],
+            attrs[2]: [['q', 'Q', 'ox', 'Ox', 'OX'], 'q']
+        }
+        # find current case
+        for attr in attrs:
+            if any([x for x in keys[attr][0] if x in varname]):
+                timecourse = getattr(self.parent, keys[attr][1])
+                yname = attr
+                break
+        # if no case found
+        if not 'yname' in locals():
             timecourse = getattr(self.parent, varname, -1)
             yname = varname
             if len(timecourse) <= 1:
-                print(f"ERROR: BallonPlots.plotOverTime: unknown variable name {varname}.")
-                return 0,0
+                warn(f"ERROR: BallonPlots.plotOverTime: unknown variable name {varname}.")
+                return 0,''
+        # return specific depth
+        if depth > -1: timecourse = timecourse[:, depth, :]
         return np.squeeze(timecourse), yname
     
     ''' plotOverTime: plot data (volume, flow or q) as time line '''
-    def plotOverTime(self, varname):
-        timecourse, yname = self.__getTimeCourse(varname)
+    def plotOverTime(self, varname, depth=-1):
+        timecourse, yname = self.__getTimeCourse(varname, depth)
         if len(timecourse) > 1:
             self.plotOverAnother(self.time, timecourse, 't', yname, varname)
     
     ''' plotAll: plot flow, volume and q in one call '''
-    def plotAll(self, title=''):
-        self.plotOverTime(f'flow, {title}')
-        self.plotOverTime(f'volume, {title}')
-        self.plotOverTime(f'q, {title}')
+    def plotAll(self, title='', depth=-1):
+        if len(title) > 0: comma = ','
+        else: comma = ''
+        self.plotOverTime(f'flow{comma} {title}', depth)
+        self.plotOverTime(f'volume{comma} {title}', depth)
+        self.plotOverTime(f'q{comma} {title}', depth)
     
     
         

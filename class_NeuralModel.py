@@ -46,6 +46,7 @@ class Neural_Model:
         self.f_arteriole = np.ones([self.params.numDepths, self.params.N])
 
     def __getExcitatory(self, d,t):
+        #yn(:,1)   = yn(:,1) + dt*(A*Xn(:,1) - MU.*Xn(:,2) + C*U.u(t,:)');
         self.n_excitatory[d,t] = \
               self.n_excitatory[d,t-1] \
             + self.params.dt * ( \
@@ -55,6 +56,7 @@ class Neural_Model:
               )
     
     def __getInhibitory(self, d,t):
+        #yn(:,2)   = yn(:,2) + dt*(LAM.*(-Xn(:,2) +  Xn(:,1)));
         self.n_inhibitory[d,t] = \
               self.n_inhibitory[d,t-1] \
             + self.params.dt * self.nparams.lambd * \
@@ -85,23 +87,54 @@ class Neural_Model:
                 self.__getFlow(d,t)
         self.inputTL.set_input(self.f_arteriole, self.inputTL.INDEX_FLOW)
     
-    def get_activationFunction(self, plotFlag=False):
-        if not hasattr(self, 'n_excitatory'):
-            warn('Activation function cannot be returned because it has not been calculated!')
+    ''' __longName: get human readable name of specific function '''
+    def __longName(self, funcname):
+        longnames = {
+            'n_excitatory': 'Neuronal Activation Function',
+            'f_arteriole': 'Flow Response'
+        }
+        return longnames[funcname]
+
+    ''' __getFunc: return a function (n_excitatory, f_arteriole) on specified depth
+                    (return all depths if depth==-1) '''
+    def __getFunc(self, funcname, depth):
+        if not hasattr(self, funcname):
+            warn(f'{self.__longName(funcname)} cannot be returned because it has not been calculated!')
             return None
-        if plotFlag:
-            time = np.linspace(0, self.params.N, self.params.N)
-            numLines = self.params.numDepths
-            numColumns = 1
-            _, axs = plt.subplots(numLines, numColumns) 
-            for d in range(0, self.params.numDepths):
-                if hasattr(axs, '__len__'): a = axs[d]
-                else: a = axs
-                if d==0: 
-                    a.set_title("Neuronal Activation Function")
-                a.grid(True)
-                if d==self.params.numDepths-1:
-                    a.set_xlabel('t')
-                a.set_ylabel('n')
-                a.plot(time, self.n_excitatory[d,:])
-        return self.n_excitatory
+        if depth==-1:  
+            return getattr(self, funcname)
+        return getattr(self, funcname)[depth,:]
+
+    def get_activationFunction(self, depth=-1):
+        return self.__getFunc('n_excitatory', depth)
+    def get_flowResponse(self, depth=-1):
+        return self.__getFunc('f_arteriole', depth)
+    
+    ''' __plotFunc: plot a function (n_excitatory, f_arteriole) on specified depth
+                    (plot all depths if depth==-1) '''
+    def __plotFunc(self, funcname, depth):
+        if not hasattr(self, funcname):
+            warn(f'{self.__longName(funcname)} cannot be plotted because it has not been calculated!')
+            return
+        time = np.linspace(0, self.params.N, self.params.N)
+        numLines = self.params.numDepths
+        if depth > -1: numLines = 1
+        numColumns = 1
+        _, axs = plt.subplots(numLines, numColumns) 
+        for d in range(0, numLines):
+            if hasattr(axs, '__len__'): a = axs[d]
+            else: a = axs
+            if d==0: 
+                a.set_title(self.__longName(funcname))
+            a.grid(True)
+            if d==numLines-1:
+                a.set_xlabel('t')
+            if depth > -1:
+                d = depth
+            a.plot(time, getattr(self, funcname)[d,:])
+    
+    def plot_activationFunction(self, depth=-1):
+        self.__plotFunc('n_excitatory', depth)
+    def plot_flowResponse(self, depth=-1):
+        self.__plotFunc('f_arteriole', depth) 
+        

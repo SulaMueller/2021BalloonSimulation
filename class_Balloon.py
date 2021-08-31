@@ -3,9 +3,10 @@
 @author:    Sula Spiegel
 @change:    06/08/2021
 
-@summary:   Class to calculate the Balloon Model 
+@summary:   Class to calculate Balloon Model 
             (flow, volume, oxygenation fraction as function of time and model parameters)
             Compartments: [arteriole, venule, vein]
+            Matrix dimensions: [K, D, T]
 """
 
 ''' TODO: q, BOLD, log-normal
@@ -50,13 +51,16 @@ class Balloon:
     ''' __init_matrices: initialize all matrices needed for balloon model calculation '''
     def __init_matrices(self):
         # use ones, since init values should be 1
-        self.volume = np.ones([self.params.numCompartments, self.params.numDepths, self.params.N])
-        self.flow = np.ones([self.params.numCompartments, self.params.numDepths, self.params.N])
-        self.q = np.ones([self.params.numCompartments, self.params.numDepths, self.params.N])
+        K = self.params.numCompartments
+        D = self.params.numDepths
+        T = self.params.N
+        self.volume = np.ones([K, D, T])
+        self.flow = np.ones([K, D, T])
+        self.q = np.ones([K, D, T])
 
         # save change values for one iteration
-        self.dv = np.zeros([self.params.numCompartments, self.params.numDepths])  # need zero for visco-elastic time constant
-        self.dq = np.empty([self.params.numCompartments, self.params.numDepths])
+        self.dv = np.zeros([K, D])  # need zero for visco-elastic time constant
+        self.dq = np.empty([K, D])
     
     ''' __init_values: get initial values (t=0) '''
     def __init_values(self):

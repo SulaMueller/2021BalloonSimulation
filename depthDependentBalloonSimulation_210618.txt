@@ -1,6 +1,6 @@
 # values taken from Havlicek2020
 
-number of time points       = 100
+number of time points       = 2000
 time integration step (dt)  = 0.01 [s]
 number of depth levels      = 6
 
@@ -9,12 +9,12 @@ INPUT TIMELINE (can be arterial flow or neural activation)
 
 type of input ('flow'/'neural') = n
                 |  time points of change  |  input after this point |
-depth level 0   |  0, 20, 60              |  0.0; 1.0; 0.0          |
-depth level 1   |  0, 20, 60              |  0.0; 1.0; 0.0          |
-depth level 2   |  0, 20, 60              |  0.0; 1.0; 0.0          |
-depth level 3   |  0, 20, 60              |  0.0; 1.0; 0.0          |
-depth level 4   |  0, 20, 60              |  0.0; 1.0; 0.0          |
-depth level 5   |  0, 20, 60              |  0.0; 1.0; 0.0          |
+depth level 0   |  0; 100; 300            |  0.0; 1.0; 0.0          |
+depth level 1   |  0; 100; 300            |  0.0; 1.0; 0.0          |
+depth level 2   |  0; 100; 300            |  0.0; 1.0; 0.0          |
+depth level 3   |  0; 100; 300            |  0.0; 1.0; 0.0          |
+depth level 4   |  0; 100; 300            |  0.0; 1.0; 0.0          |
+depth level 5   |  0; 100; 300            |  0.0; 1.0; 0.0          |
 
 -------------------------------------------------------------------------
 FLOW + VOLUME RESTING STATE
@@ -86,5 +86,3 @@ B0  = 7 [T]
 TE  = 28 [ms]
 dXi = 0.000000264
 n-ratio = 4
-
-
