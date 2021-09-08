@@ -14,7 +14,7 @@
 
 import numpy as np
 import math
-from warnings import warn
+from warnUsr import warn
 from class_ModelParameters import Model_Parameters
 from class_inputTimeline import Input_Timeline
 from class_BOLD import BOLD

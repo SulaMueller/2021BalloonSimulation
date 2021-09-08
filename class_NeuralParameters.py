@@ -8,7 +8,7 @@
 
 import numpy as np
 from readFile import getFileText, readValFromText
-from warnings import warn
+from warnUsr import warn
 
 class Neural_Parameters:
     def __init__(self, parameter_file):

@@ -8,7 +8,7 @@
 
 import os
 import numpy as np
-from warnings import warn
+from warnUsr import warn
 from readFile import getFileText, readValFromText, readMatrixFromText
 
 ''' __sizeOfSpace: count number of ' ' after startindex until next nonspace character '''

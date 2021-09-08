@@ -13,7 +13,7 @@
 
 import numpy as np
 import math
-from warnings import warn
+from warnUsr import warn
 import matplotlib.pyplot as plt
 from class_NeuralParameters import Neural_Parameters
 from class_ModelParameters import Model_Parameters

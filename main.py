@@ -9,12 +9,12 @@ from class_Balloon import Balloon
 from writeFile import changeInputFunction, changeMatrixCol, changeMatrixVal, changeValue
 
 # parameter files
-parameter_file = "/depthDependentBalloonSimulation_210618.txt"
+parameter_file = "/empty.txt" #"/depthDependentBalloonSimulation_210618.txt"
 neural_parameter_file = "/NeuralParameters_210812.txt"
 input_function_file = parameter_file
 
 # read in parameters
-changeValue(input_function_file, 'number of time points', new_val=2000)
+#changeValue(input_function_file, 'number of time points', new_val=2000)
 params = Model_Parameters(parameter_file)
 neural_params = Neural_Parameters(neural_parameter_file)
 
