@@ -176,11 +176,10 @@ class Balloon:
                         * use <firstcall> to repeat only once 
                             (make sure flowdir doesn't swap forth and back infinitely) '''
     def __get_oneLayer(self, k,d,t, firstcall=True):
-        # define variables that are needed and order to calculate them
-        required_vals = ["flow", "dv", "dq"]
         # get (and save) flow dir from last volume change
         flowdir_tmp = self.__get_flowDir(k,d)
         # get required variables
+        required_vals = ["flow", "dv", "dq"]
         for v in range(len(required_vals)):
             self.__get_balloonVal(k,d,t, required_vals[v])
         # check, that for this time point flow dir didn't change
