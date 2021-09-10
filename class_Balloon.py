@@ -29,14 +29,21 @@ class Balloon:
         self.__check_input()
         self.__get_priors()
         self.__get_balloon()
-        self.bold = BOLD(self)
+        #self.bold = BOLD(self)
         self.plots = Balloon_Plots(self)
 
 # ---------------------------------  PREPARATION  -----------------------------------------
-    ''' __check_input: make sure, f_arteriole is given '''
+    ''' __check_input: make sure, timeline data is given '''
     def __check_input(self):
+        # check, that in-flow is available
         if not self.inputTL.available_input[self.inputTL.INDEX_FLOW]:
-            raise Exception('Balloon model needs f_arteriole as input. Calculate neural model first or give arterial flow directly.')
+            raise Exception('Balloon model needs f_arteriole as input. \
+                             Calculate neural model first or give arterial flow directly.')
+        # check, that either n,E0 or CMRO2 are given (for q calculation)
+        if self.params.oxmode == self.params._OX_m:
+            if not self.inputTL.available_input[len(self.inputTL.INPUT_TYPES)]:
+                raise Exception(self.params._exception)
+            else: self.m = self.inputTL.cmro2
 
     ''' __get_priors: get time invariant constants (denominator of flow ("flowscaling")) '''
     def __get_priors(self):
@@ -50,17 +57,14 @@ class Balloon:
     
     ''' __init_matrices: initialize all matrices needed for balloon model calculation '''
     def __init_matrices(self):
-        # use ones, since init values should be 1
         K = self.params.numCompartments
         D = self.params.numDepths
         T = self.params.N
-        self.volume = np.ones([K, D, T])
-        self.flow = np.ones([K, D, T])
-        self.q = np.ones([K, D, T])
-
-        # save change values for one iteration
-        self.dv = np.zeros([K, D])  # need zero for visco-elastic time constant
-        self.dq = np.empty([K, D])
+        for attr in ['volume', 'flow', 'q', 'm']:  # init all timelines
+            if not hasattr(self, attr): setattr(self, attr, np.ones([K, D, T]) )  
+            # use ones, since init values should be 1
+        for attr in ['dv', 'dq']:  # save change values for one iteration
+            setattr(self, attr, np.zeros([K, D]) )  # need zero for visco-elastic time constant
     
     ''' __init_values: get initial values (t=0) '''
     def __init_values(self):
@@ -134,24 +138,54 @@ class Balloon:
                 + self.__getDeeperLayerFlow(k,d,t) \
                 - self.__getCurrentFlow(k,d,t) \
             ) / self.params.tau0[k,d]
+
+# ----------------------------  CALCULATE DEOXY CHANGE FOR VENULE  ------------------------
+    ''' __getMfromN: return m if n is given (m = (fa-1)/n + 1) '''
+    def __getMfromN(self, d,t):
+        m = (self.flow[self.params.ARTERIOLE,d,t] - 1)/self.params.n[self.params.VENULE,d] + 1
+        self.m[self.params.VENULE,d,t] = m
+        return m
+
+    ''' __getExtractionFromM: return E/E0 if m is given (E/E0 = m/fa) '''
+    def __getExtractionFromM(self, d,t):
+        return self.m[self.params.VENULE,d,t] / self.flow[self.params.ARTERIOLE,d,t]
     
-# ---------------------------------  CALCULATE DEOXY CHANGE  ------------------------------
+    ''' __getExtractionFromE0: get extraction after Buxton1997 (E = 1 - (1-E0)^(1/fa))'''
+    def __getExtractionFromE0(self, d,t):
+        return 1 - pow(1-self.params.E0[self.params.VENULE,d], 1/self.flow[self.params.ARTERIOLE,d,t])
+    
+    ''' __getMFromE: return m if E/E0 is given (m = E/E0 * fa) '''
+    def __getMFromE(self, E_E0, d,t):
+        m = E_E0 * self.flow[self.params.ARTERIOLE,d,t]
+        self.m[self.params.VENULE,d,t] = m
+        return m
+
+    ''' __getVenuleHbV: get Hb/v = E/E0 for venule compartment (depends on type of ox extraction input) '''
+    def __getVenuleHbV(self, d,t):
+        if self.params.oxmode == self.params._OX_n: 
+            self.__getMfromN(d,t)
+        if self.params.oxmode in [self.params._OX_m, self.params._OX_n]: 
+            return self.__getExtractionFromM(d,t)
+        if self.params.oxmode == self.params._OX_E0: 
+            E_E0 = self.__getExtractionFromE0(d,t) / self.params.E0[self.params.VENULE,d]
+            self.__getMFromE(E_E0, d,t)
+            return E_E0
+        
+# -----------------------------  CALCULATE GENERAL DEOXY CHANGE  --------------------------
     ''' __getCurrentHbV: get Hb/v in current depth/compartment '''
     def __getCurrentHbV(self, k,d,t):
         return self.q[k,d,t] / self.volume[k,d,t]
     
     ''' __getPreviousCompartmentHbV: get Hb/v in previous compartment '''
     def __getPreviousCompartmentHbV(self, k,d,t):
-        if k == self.params.VENULE:
-            fa = self.flow[self.params.ARTERIOLE,d,t]
-            return (fa + self.params.n - 1) / (self.params.n * fa)  # divide by fa because it'll be multiplied in dq 
+        if k == self.params.VENULE: return self.__getVenuleHbV(d,t)
         return self.__getCurrentHbV(k-1,d,t)
     
     ''' __getDeeperLayerHbV: get Hb/v from deeper layer '''
     def __getDeeperLayerHbV(self, k,d,t):
         if not self.__needDeeperLayers(k,d): return 0
         return self.__getCurrentHbV(k,d+1,t)
-
+    
     ''' __get_dq: get change of Hb-val for venule or vein from flow (and write into time line) '''
     def __get_dq(self, k,d,t):
         self.dq[k,d] = \

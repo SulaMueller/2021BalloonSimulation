@@ -16,16 +16,17 @@ from readFile import getFileText, readValFromText, readMatrixFromText
 from class_ModelParameters import Model_Parameters
 
 class Input_Timeline:
-    def __init__(self, params: Model_Parameters, input_file: str):
+    def __init__(self, params: Model_Parameters, input_file: str, cmro_file=None):
         self.params = params
 
         self.INPUT_TYPES = ["flow", "neur"]
         self.INDEX_FLOW = 0
         self.INDEX_NEURO = 1
-        self.available_input = np.zeros(len(self.INPUT_TYPES))
+        self.available_input = np.zeros(len(self.INPUT_TYPES)+1)
 
         self.filetext = getFileText(input_file)  # get file as string
-        self.read_input_fromFile()  # read flow_arteriole or neural activation from file
+        self.read_input_fromFile()  # read flow_arteriole or neural activation from 
+        self.read_cmro(cmro_file)  # read cmro-values, if given
 
 # ---------------------------------  SET INPUT TIMELINE  --------------------------------------
     ''' set_input: assign a given array to matching input structure (flow or neuro) '''
@@ -65,6 +66,19 @@ class Input_Timeline:
             if self.INPUT_TYPES[i] in input_type or input_type in self.INPUT_TYPES[i]: 
                 self.set_input(entire_timeline, i)
                 break
+    
+    def read_cmro(self, cmro_file):
+        if cmro_file is None: return
+        filetext = getFileText(cmro_file)
+        lines = filetext.splitlines()  # get array of lines
+        self.cmro2 = np.zeros([self.params.numDepths, self.params.N])
+        for i in range(0, self.params.N):
+            line = lines[i]
+            self.cmro2[d,i] = float(line)
+            # >> implement here, what needs to be done for each line <<
+            raise Exception("\nread_cmro not implemented. Implement according to filestructure if needed.\n")
+            # >> then delete Exception <<
+        self.available_input[len(self.INPUT_TYPES)] = True 
         
         
 

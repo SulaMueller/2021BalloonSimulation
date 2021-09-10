@@ -52,7 +52,8 @@ class readableVarClass:
                 'tau0' : ['tau0', 0, False, 0],
                 'alpha' : ['alpha', 1, True, 0],
                 'vet' : ['visco-elastic time constants', 1, True, -1],
-                'E0' : ['E0', 1, False, 0]
+                'E0' : ['E0', 1, False, 0],
+                'n' : ['n-ratio', 1, False, 0]
             },
             nameClass.BOLDvars : { 
                 nameClass.single : {
@@ -73,6 +74,7 @@ class Model_Parameters:
         self.COMPARTMENTS = ["ARTERIOLE", "VENULE", "VEIN"]
         self.DIMS = ['numCompartments', 'numDepths']
         self.FLOWDIRS = ["INFLATION", "DEFLATION"]  # for visco-elastic time constant
+        self._OXMODES = ["_OX_n", "_OX_m", "_OX_E0"]
 
         # give each entry in COMPARTMENTS, DIMS and FLOWDIRS an attribute and value
         self.__setAllCONSTS()  # eg self.ARTERIOLE = 0 etc
@@ -86,6 +88,7 @@ class Model_Parameters:
 
         self.__parse_parameterFile(parameter_file)  # read parameters from file
         self.__completeVFt()  # make sure, V,F and tau meet requirements for resting conditions
+        self.__checkQ()  # make sure, given input is sufficient to calculate ox-extraction (q, dq)
 
 # --------------------------------------  HELPERS  --------------------------------------------
     ''' __setAllCONSTS: give each string in attributes given so far a value ( eg self.ARTERIOLE = 0 ) '''
@@ -256,8 +259,8 @@ class Model_Parameters:
     ''' __checkInput: make sure F0, V0, tau0 meet requirements for full rank definition 
             * raise exception if not
             * required format described in: inputCheckFailed -> errormessage
-        OUTPUT: haveF0 -> array[numDepths,2] saves for each depth, if have a value for F0 
-                                             or the compartment where it can be calculated '''
+        OUTPUT: haveF0 -> array[numDepths,2]; saves for each depth, if have a value for F0 
+                                              or the compartment where it can be calculated '''
     def __checkInput(self):
         # init values
         under = 0
@@ -350,3 +353,27 @@ class Model_Parameters:
         for k in range(0, self.numCompartments):
             if k==k_groundTruth: continue
             self.__makeFlowMeetCondition_oneCompartment(k, k_groundTruth, d)
+
+# -----------------------------  MAKE SURE Q CAN BE CALCULATED  -------------------------------
+    ''' __checkE0: make sure, E0 was given as matrix and not as part of boldparams '''
+    def __checkE0(self):
+        if self.__isInit('E0'): return False
+        if (self.E0>0.7).any() or (self.E0<0).any(): return False
+        for attr in self.boldparams:
+            if attr == 'E0': continue
+            for d in range(0, self.numDepths):
+                if (self.E0[:,d]==self.boldparams[attr]).all(): return False
+        return True
+    
+    ''' __checkQ: make sure, given input is sufficient to calculate ox-extraction (q, dq) '''
+    def __checkQ(self):
+        if not self.__isInit('n'): self.oxmode = self._OX_n
+        elif self.__checkE0(): self.oxmode = self._OX_E0
+        else: 
+            self.oxmode = self._OX_m
+            self._exception = (f"\ndHb-content can not be calculated with given input. "
+                               f"\nGive either "
+                               f"{self.getVarInfo('n', nameClass.matrix, nameClass.readname)} or "
+                               f"{self.getVarInfo('E0', nameClass.matrix, nameClass.readname)} "
+                               f"as matrix [{self.DIMS[0]}, {self.DIMS[1]}].\n"
+                               f"Alternatively, give CMRO2 as inputfile into 'Input_Timeline'.\n\n")

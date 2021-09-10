@@ -9,7 +9,7 @@ from class_Balloon import Balloon
 from writeFile import changeInputFunction, changeMatrixCol, changeMatrixVal, changeValue
 
 # parameter files
-parameter_file = "/empty.txt" #"/depthDependentBalloonSimulation_210618.txt"
+parameter_file = "/depthDependentBalloonSimulation_210618.txt"#"/empty.txt"#
 neural_parameter_file = "/NeuralParameters_210812.txt"
 input_function_file = parameter_file
 
@@ -19,8 +19,8 @@ params = Model_Parameters(parameter_file)
 neural_params = Neural_Parameters(neural_parameter_file)
 
 # read input function from file
-changeMatrixCol(input_function_file, 'type of input', [0,100,300], k=0, numDepths=params.numDepths)
-changeInputFunction(input_function_file, params.numDepths, new_type='n')
+#changeMatrixCol(input_function_file, 'type of input', [0,100,300], k=0, numDepths=params.numDepths)
+#changeInputFunction(input_function_file, params.numDepths, new_type='n')
 input_TimeLine = Input_Timeline(params, input_function_file)
 
 # create neural model

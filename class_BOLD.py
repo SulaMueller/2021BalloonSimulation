@@ -22,7 +22,7 @@ class BOLD:
                        'H0': np.empty([self.params.numDepths]),
                        'sV0': np.zeros([self.params.numDepths])}
         for k in range(0, self.params.numCompartments):
-            self.consts['cs'][0,k] = 4.3 * self.params.boldparams['dXi'] * self.params.boldparams['Hct'][k] * self.params.boldparams['gamma0'] * self.params.B0 \
+            self.consts['cs'][0,k] = 4.3 * self.params.boldparams['dXi'] * self.params.boldparams['Hct'][k] * self.params.boldparams['gamma0'] * self.params.boldparams['B0'] \
                                  * self.params.E0[k] * self.params.boldparams['TE']
             self.consts['cs'][1,k] = self.params.boldparams['epsilon'][k] * self.params.boldparams['r0'][k] * self.params.E0[k] * self.params.boldparams['TE']
             self.consts['cs'][2,k] = 1-self.params.boldparams['epsilon'][k]
