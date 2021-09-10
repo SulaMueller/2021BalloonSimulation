@@ -8,9 +8,9 @@
 """
 
 import numpy as np
-from warnUsr import warn
-
 from numpy.core.fromnumeric import ndim
+
+from warnUsr import warn
 from readFile import getFileText, readValFromText, readMatrixFromText
 
 ''' makeDict: create a dictionary with specified entries '''
@@ -38,15 +38,8 @@ class readableVarNameClass:
 
 nameClass = readableVarNameClass()  # initialize instance
 
-class Model_Parameters:
-    def __init__(self, parameter_file: str):
-        self.COMPARTMENTS = ["ARTERIOLE", "VENULE", "VEIN"]
-        self.DIMS = ['numCompartments', 'numDepths']
-        self.FLOWDIRS = ["INFLATION", "DEFLATION"]  # for visco-elastic time constant
-        # give each entry in COMPARTMENTS and FLOWDIRS an attribute and value
-        for headname in ["COMPARTMENTS", "FLOWDIRS", "DIMS"]: self.__setCONSTS(headname)  
-
-        # define required input
+class readableVarClass:
+    def __init__(self):
         self.readableVars = {  # attrname: [name for read-in, defaultVal, throwException, type/nVar]
             nameClass.single : {
                 'N' : ["number of time points", -1, True, 'int'],
@@ -75,18 +68,33 @@ class Model_Parameters:
             }
         }
 
-        self.nameClass = readableVarNameClass()
+class Model_Parameters:
+    def __init__(self, parameter_file: str):
+        self.COMPARTMENTS = ["ARTERIOLE", "VENULE", "VEIN"]
+        self.DIMS = ['numCompartments', 'numDepths']
+        self.FLOWDIRS = ["INFLATION", "DEFLATION"]  # for visco-elastic time constant
+
+        # give each entry in COMPARTMENTS, DIMS and FLOWDIRS an attribute and value
+        self.__setAllCONSTS()  # eg self.ARTERIOLE = 0 etc
+
         self.parameter_file = parameter_file
+        self.nameClass = readableVarNameClass()
+        self.readableVars = readableVarClass().readableVars
+        
         self.haveBOLDparams = True
         self.numCompartments = len(self.COMPARTMENTS)
-        self.__parse_parameterFile(parameter_file)
-        self.__completeVFt()
+
+        self.__parse_parameterFile(parameter_file)  # read parameters from file
+        self.__completeVFt()  # make sure, V,F and tau meet requirements for resting conditions
 
 # --------------------------------------  HELPERS  --------------------------------------------
-    ''' __setCONSTS: give each string in self.headname a value ( eg self.ARTERIOLE = 0 ) '''
-    def __setCONSTS(self, headname):
-        head = getattr(self, headname)
-        for i in range(0, len(head)): setattr(self, head[i], i)
+    ''' __setAllCONSTS: give each string in attributes given so far a value ( eg self.ARTERIOLE = 0 ) '''
+    def __setAllCONSTS(self):
+        # get all attributes defined so far
+        for headname in [x for x in [i for i in self.__dict__.keys()]]:
+            head = getattr(self, headname)
+            # set each individual string as attribute with index as value
+            for i in range(0, len(head)): setattr(self, head[i], i)
 
     def __getReadable(self, bold=False):
         if not bold: return self.readableVars
@@ -158,9 +166,8 @@ class Model_Parameters:
     ''' __isInit: return False, if a matrix/value is not in initial conditions any more
                   return True, if is in initial conditions or hasn't been initialized yet '''
     def __isInit(self, varname, vartype=nameClass.matrix, bold=False):
-        if not bold: s = self
-        else: s = self.boldparams
-        var = getattr(s, varname, None)
+        if not bold: var = getattr(self, varname, None)
+        else: var = self.boldparams[varname]
         if var is None: return True
         initVal = self.__getInitVal(varname, vartype, bold)
         if vartype == nameClass.single: return var == initVal

@@ -3,7 +3,7 @@
 @author:    Sula Spiegel
 @change:    08/09/2021
 
-@summary:   customized warning (print in red color)
+@summary:   customized warning (print in color)
 """
 
 class bcolors:

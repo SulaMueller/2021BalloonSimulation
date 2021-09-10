@@ -165,9 +165,9 @@ class Balloon:
     ''' __get_balloonVal: general call function to get a single value of the time line;
                           assigns specific function that is to be executed '''
     def __get_balloonVal(self, k,d,t, varname):
-        if varname is 'flow': self.__get_flow(k,d,t)
-        elif varname is 'dv': self.__get_dv(k,d,t)
-        elif varname is 'dq': self.__get_dq(k,d,t)
+        if varname == 'flow': self.__get_flow(k,d,t)
+        elif varname == 'dv': self.__get_dv(k,d,t)
+        elif varname == 'dq': self.__get_dq(k,d,t)
         else: warn(f"__get_balloonVal({varname}) not implemented -> ignoring call")
     
     ''' __get_oneLayer: get all balloon values for one layer/compartment/time point 
