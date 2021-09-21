@@ -15,7 +15,7 @@
 import numpy as np
 import math
 from warnUsr import warn
-from class_ModelParameters import Model_Parameters
+from class_ModelParameters import Model_Parameters, clearAttrs
 from class_inputTimeline import Input_Timeline
 from class_BOLD import BOLD
 from class_BalloonPlots import Balloon_Plots
@@ -29,8 +29,9 @@ class Balloon:
         self.__check_input()
         self.__get_priors()
         self.__get_balloon()
-        #self.bold = BOLD(self)
+        self.bold = BOLD(self)
         self.plots = Balloon_Plots(self)
+        clearAttrs(self, ['dq', 'dv', 'flowdir', 'flowscaling'])
 
 # ---------------------------------  PREPARATION  -----------------------------------------
     ''' __check_input: make sure, timeline data is given '''
@@ -245,8 +246,6 @@ class Balloon:
                 for d in range(self.params.numDepths-1, -1, -1):
                     self.__get_oneLayer(k,d,t)
             self.__update_timePoints(t)
-    
-
 
 # ------------------------------------- DEPRECEATED  -------------------------------------
     '''__get_extractionFraction: get the extraction fraction for entire time flow 

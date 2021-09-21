@@ -9,11 +9,13 @@
 import numpy as np
 from readFile import getFileText, readValFromText
 from warnUsr import warn
+from class_ModelParameters import clearAttrs
 
 class Neural_Parameters:
     def __init__(self, parameter_file):
         self.parameter_file = parameter_file
         self.__parse_parameterFile()
+        clearAttrs(self, ['filetext'])
     
     ''' __parse_val: read a single value from the parameter file ''' 
     def __parse_val(self, varname, typestring='float'):

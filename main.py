@@ -25,8 +25,8 @@ input_TimeLine = Input_Timeline(params, input_function_file)
 
 # create neural model
 neural_model = Neural_Model(neural_params, params, input_TimeLine)
-neural_model.plot_activationFunction(depth=1)
-neural_model.plot_flowResponse(depth=1)
+#neural_model.plot_activationFunction(depth=1)
+#neural_model.plot_flowResponse(depth=1)
 
 # create balloon model
 balloon = Balloon(params, input_TimeLine)
@@ -34,9 +34,9 @@ balloon = Balloon(params, input_TimeLine)
 # plot 
 balloon.plots.plotAll()
 
-depth = 2
-compartment = params.VENULE
-balloon.plots.plotOverAnother(balloon.flow[compartment,depth,:], balloon.volume[compartment,depth,:], 'flow', 'volume')
+#depth = 2
+#compartment = params.VENULE
+#balloon.plots.plotOverAnother(balloon.flow[compartment,depth,:], balloon.volume[compartment,depth,:], 'flow', 'volume')
 #balloon.plots.plotOverAnother(balloon.plots.time, balloon.flow[params.VENULE, :,:], 't', 'flow', title='venule')
 #balloon.plots.plotOverAnother(balloon.plots.time, balloon.flow[params.VEIN, :,:], 't', 'flow', title='vein')
 

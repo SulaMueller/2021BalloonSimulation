@@ -13,7 +13,7 @@
 import numpy as np
 from warnUsr import warn
 from readFile import getFileText, readValFromText, readMatrixFromText
-from class_ModelParameters import Model_Parameters
+from class_ModelParameters import Model_Parameters, clearAttrs
 
 class Input_Timeline:
     def __init__(self, params: Model_Parameters, input_file: str, cmro_file=None):
@@ -27,6 +27,7 @@ class Input_Timeline:
         self.filetext = getFileText(input_file)  # get file as string
         self.read_input_fromFile()  # read flow_arteriole or neural activation from 
         self.read_cmro(cmro_file)  # read cmro-values, if given
+        clearAttrs(self, ['filetext'])
 
 # ---------------------------------  SET INPUT TIMELINE  --------------------------------------
     ''' set_input: assign a given array to matching input structure (flow or neuro) '''

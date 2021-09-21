@@ -21,6 +21,10 @@ def makeDict(entrynames, values=None):
         else: d[entrynames[i]] = i
     return d
 
+''' clearAttrs: delete all attrs of attrlist '''
+def clearAttrs(obj, attrlist):
+    for attr in attrlist: delattr(obj, attr)
+
 ''' readableVarNameClass: define structure of "readableVars" in Model_Parameters '''
 class readableVarNameClass:
     def __init__(self):
@@ -65,6 +69,7 @@ class readableVarClass:
                     'epsilon' : ['epsilon', -1, False, 0],
                     'Hct' : ['Hct', -1, False, 0],
                     'r0' : ['r0', -1, False, 0],
+                    'E0' : ['E0', -1, False, 0]
                 }
             }
         }
@@ -89,6 +94,7 @@ class Model_Parameters:
         self.__parse_parameterFile(parameter_file)  # read parameters from file
         self.__completeVFt()  # make sure, V,F and tau meet requirements for resting conditions
         self.__checkQ()  # make sure, given input is sufficient to calculate ox-extraction (q, dq)
+        clearAttrs(self, ['filetext', 'haveBOLDparams'])
 
 # --------------------------------------  HELPERS  --------------------------------------------
     ''' __setAllCONSTS: give each string in attributes given so far a value ( eg self.ARTERIOLE = 0 ) '''
@@ -194,15 +200,26 @@ class Model_Parameters:
         else: self.boldparams[varname] = res
         if wouldThrow and self.__isInit(varname, vartype, bold): self.__addNewException(readname)
         return res
+
+    ''' __E0check: E0 can be given as part of boldparams or independently -> make sure at least one is given. '''
+    def __E0check(self):
+        if self.__checkE0: return True  # if E0 was given as matrix
+        return hasattr(self.boldparams, 'E0')
+
+    ''' __BOLDfail: define what to do if a bold-param is missing '''
+    def __BOLDfail(self, varname, vartype):
+        readname = self.getVarInfo(varname, vartype, nameClass.readname, bold=True)
+        warn(f'{readname} not given. Won\'t calculate BOLD-contrast.')
+        self.haveBOLDparams = False
     
     ''' __BOLDcheck: check, that all BOLD-parameters are there '''
     def __BOLDcheck(self, vartype):
         for varname in self.__getAllValuenames(vartype, bold=True):
             if self.__isInit(varname, vartype, bold=True):
-                readname = self.getVarInfo(varname, vartype, nameClass.readname, bold=True)
-                warn(f'{readname} not given. Won\'t calculate BOLD-contrast.')
-                self.haveBOLDparams = False
-
+                if varname == 'E0': 
+                    if self.__E0check(): continue
+                self.__BOLDfail(varname, vartype)
+                    
     ''' __parse_parameterFile: read all required parameters from the parameter file '''
     def __parse_parameterFile(self, filename):
         self._exception = ''  # throw exception if values are missing

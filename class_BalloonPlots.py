@@ -134,11 +134,13 @@ class Balloon_Plots:
             OUTPUT: [data stored in parent by that name, axis title] '''
     def __getTimeCourse(self, varname, depth):
         # define cases
-        attrs = ['v', 'f', 'q']
+        attrs = ['v', 'f', 'q', 'bold', 'vaso']
         keys = {
-            attrs[0]: [['v', 'V'], 'volume'],
+            attrs[0]: [['vo', 'Vo', 'VO'], 'volume'],
             attrs[1]: [['f', 'F'], 'flow'],
-            attrs[2]: [['q', 'Q', 'ox', 'Ox', 'OX'], 'q']
+            attrs[2]: [['q', 'Q', 'ox', 'Ox', 'OX', 'dHb'], 'q'],
+            attrs[3]: [['b', 'B'], 'bold'],
+            attrs[4]: [['va', 'VA', 'Va'], 'bold']
         }
         # find current case
         for attr in attrs:
@@ -153,6 +155,11 @@ class Balloon_Plots:
             if len(timecourse) <= 1:
                 warn(f"ERROR: BallonPlots.plotOverTime: unknown variable name {varname}.")
                 return 0,''
+        # bit more specific for BOLD and VASO
+        if yname == attrs[3]:
+            timecourse = getattr(timecourse, 'BOLDsignal')
+        if yname == attrs[4]:
+            timecourse = getattr(timecourse, 'VASOsignal')
         # return specific depth
         if depth > -1: timecourse = timecourse[:, depth, :]
         return np.squeeze(timecourse), yname
@@ -164,12 +171,17 @@ class Balloon_Plots:
             self.plotOverAnother(self.time, timecourse, 't', yname, varname)
     
     ''' plotAll: plot flow, volume and q in one call '''
-    def plotAll(self, title='', depth=-1):
+    def plotAll(self, title='', depth=-1, bold=True, vaso=True):
         if len(title) > 0: comma = ','
         else: comma = ''
         self.plotOverTime(f'flow{comma} {title}', depth)
         self.plotOverTime(f'volume{comma} {title}', depth)
-        self.plotOverTime(f'q{comma} {title}', depth)
+        self.plotOverTime(f'dHb-content{comma} {title}', depth)
+        if bold:
+            self.plotOverTime(f'BOLD-signal{comma} {title}', depth)
+        if vaso:
+            self.plotOverTime(f'VASO-signal{comma} {title}', depth)
+
     
     
         
