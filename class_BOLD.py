@@ -3,7 +3,7 @@
 @author:    Sula Spiegel
 @change:    10/08/2021
 
-@summary:   get BOLD-signal from BALLOON
+@summary:   get BOLD-signal from BALLOON (also gives VASO-signal)
 """
 
 import numpy as np
@@ -11,7 +11,7 @@ from class_ModelParameters import clearAttrs
 
 class BOLD:
     def __init__(self, parent):
-        self.parent = parent
+        self.parent = parent  # parent: Balloon
         self.params = parent.params
         self.__get_scalingConstants()
         self.__get_BOLD()

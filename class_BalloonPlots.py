@@ -127,7 +127,7 @@ class Balloon_Plots:
                     if hasattr(axs, '__len__'): ax = axs[C]
                     else: ax = axs
                 else: ax = axs[L, C]
-                self.__plotSubplots(ax, sub_x, sub_y, xname, yname)
+                self.__plotSubplots(ax, sub_x, sub_y, xname, yname+'(d='+str(L+1)+')')
     
     ''' __getTimeCourse: extracts specific data defined by name 
             INPUT: varname -> title of plot

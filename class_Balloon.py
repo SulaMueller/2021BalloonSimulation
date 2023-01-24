@@ -48,10 +48,11 @@ class Balloon:
 
     ''' __get_priors: get time invariant constants (denominator of flow ("flowscaling")) '''
     def __get_priors(self):
-        self.flowscaling = np.empty([self.params.numCompartments, self.params.numDepths, 2])
+        numDirs = 2
+        self.flowscaling = np.empty([self.params.numCompartments, self.params.numDepths, numDirs])
         for k in range(self.params.VENULE, self.params.numCompartments):
             for d in range(0, self.params.numDepths):
-                for flowdir in range(0,2):
+                for flowdir in range(0,numDirs):
                     self.flowscaling[k,d,flowdir] = \
                         self.params.F0[k,d] * self.params.vet[k,d,flowdir] \
                       + self.params.V0[k,d]

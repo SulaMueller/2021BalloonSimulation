@@ -21,17 +21,17 @@ def makeDict(entrynames, values=None):
         else: d[entrynames[i]] = i
     return d
 
-''' clearAttrs: delete all attrs of attrlist '''
+''' clearAttrs: delete all attrs in attrlist from obj '''
 def clearAttrs(obj, attrlist):
     for attr in attrlist: delattr(obj, attr)
 
-''' readableVarNameClass: define structure of "readableVars" in Model_Parameters '''
+''' readableVarNameClass: define structure of readableVarClass (see below) '''
 class readableVarNameClass:
     def __init__(self):
-        self.readInfo = ['readname', 'defaultVal','throwException','type','nVar']  # indice of readableVars 
-        self.__setSelfStrings(self.readInfo)  # self.readname = 'readname'
-        setattr(self, 'readindex', makeDict(self.readInfo))  # self.readindex['readname'] = 0
-        self.readindex['nVar'] = 3  # 'nVar' and 'type' share index=3
+        self.readInfo = ['readname','defaultVal','throwException','type','nVar']  # necessary info to create a readableVar
+        self.__setSelfStrings(self.readInfo)  # self.readname = 'readname' for all strings in readInfo
+        setattr(self, 'readindex', makeDict(self.readInfo))  # indice of info in readableVar ( self.readindex['readname'] = 0 )
+        self.readindex['nVar'] = 3  # 'nVar' and 'type' share index=3 (depending on whether single/matrix (matrix is always float))
 
         self.vartypes = ['single', 'matrix', 'BOLDvars']
         self.__setSelfStrings(self.vartypes)  # self.single = 'single'
@@ -42,9 +42,11 @@ class readableVarNameClass:
 
 nameClass = readableVarNameClass()  # initialize instance
 
+''' readableVarClass: class to define variables that can be used in Model_Parameters 
+                      (assume they are read in via file) '''
 class readableVarClass:
     def __init__(self):
-        self.readableVars = {  # attrname: [name for read-in, defaultVal, throwException, type/nVar]
+        self.readableVars = {  # attrname: [name for read-in, defaultVal, throw exception if missing, type/nVar]
             nameClass.single : {
                 'N' : ["number of time points", -1, True, 'int'],
                 'dt' : ["time integration step (dt)", 0.01, False, 'float'],
@@ -74,6 +76,7 @@ class readableVarClass:
             }
         }
 
+''' Model_Parameters: '''
 class Model_Parameters:
     def __init__(self, parameter_file: str):
         self.COMPARTMENTS = ["ARTERIOLE", "VENULE", "VEIN"]
@@ -96,7 +99,7 @@ class Model_Parameters:
         self.__checkQ()  # make sure, given input is sufficient to calculate ox-extraction (q, dq)
         clearAttrs(self, ['filetext', 'haveBOLDparams'])
 
-# --------------------------------------  HELPERS  --------------------------------------------
+# --------------------------------------  HELPERS / GET-FUNCTIONS --------------------------------------------
     ''' __setAllCONSTS: give each string in attributes given so far a value ( eg self.ARTERIOLE = 0 ) '''
     def __setAllCONSTS(self):
         # get all attributes defined so far
@@ -105,11 +108,12 @@ class Model_Parameters:
             # set each individual string as attribute with index as value
             for i in range(0, len(head)): setattr(self, head[i], i)
 
+    ''' __getReadable: get part of "readableVars" that is bold/not bold (needed for __getAllValuenames) '''
     def __getReadable(self, bold=False):
         if not bold: return self.readableVars
         else: return self.readableVars[nameClass.BOLDvars]
     
-    ''' __getAllValuenames: get all "readableVars" (names of variables) of specific vartype '''
+    ''' __getAllValuenames: get names of all "readableVars" of a specific vartype (single/matrix) '''
     def __getAllValuenames(self, vartype, bold=False):
         return self.__getReadable(bold)[vartype].keys()
     
@@ -123,20 +127,40 @@ class Model_Parameters:
     ''' __getInitVal: return initial/ default val for a varname '''
     def __getInitVal(self, varname, vartype=nameClass.matrix, bold=False):
         return self.getVarInfo(varname, vartype, nameClass.defaultVal, bold)
+    
+    def getVar(self, varname, bold=False):
+        if not bold: x = getattr(self, varname, None)
+        else: x = self.boldparams[varname]
+        return x
 
 # ---------------------------------  EXPLICIT READ-IN  ----------------------------------------
+    ''' setVar: set a variable as entry of self '''
+    def setVar(self, varname, val, bold=False):
+        if not bold: setattr(self, varname, val)
+        else: self.boldparams[varname] = val
+
     ''' __addNewException: add a new line of errormessage if a required value is missing '''
     def __addNewException(self, readname):
         self._exception = self._exception + f'\n{readname} missing. Define it in {self.parameter_file}.'
     
     ''' __checkIfHaveMatrixDim: check, if the specific dimension of matrix is already given (numComp/numDepths) '''
     def __checkIfHaveMatrixDim(self, dimname):
-        if getattr(self, dimname, None) is None: 
-            setattr(self, dimname, -1)
+        if getattr(self, dimname, None) is None:  # check if attribute exists
+            setattr(self, dimname, -1)  # if it doesn't exist
             return False
         return getattr(self, dimname) != -1
 
-    ''' __checkIfDimsMatch: check, if dimensions of two read-in matrices match '''
+    ''' __checkIfDimsMatch: 
+    DESCRIPTION: helper to check, if dimensions of all matrices to read-in match
+                 initialisation: haveDim = [False False]; oldval = [-1 -1]
+                 1st matrix: dimension is stored in oldval, haveDim[dimnum] stays False
+                 2nd matrix: if dimensions match, haveDim[dimnum] = True
+    INPUT: 
+        * mat: newly read-in matrix
+        * dimnum: index of dimension (numCompartments, numDepths)
+        * haveDim: info from __checkIfHaveMatrixDim as matrix[numDims]
+        * oldVal: known dimensions as matrix[numDims] (or -1 if not known)
+    OUTPUT: bool '''
     def __checkIfDimsMatch(self, mat, dimnum, haveDim, oldVal):
         if mat is not None and not haveDim[dimnum]:
             newval = mat.shape[dimnum]
@@ -149,21 +173,23 @@ class Model_Parameters:
     ''' __getBasicMatrixDims: make sure, self.numDepths and self.numCompartments are defined '''
     def __getBasicMatrixDims(self):
         # check if getting dims is necessary
-        haveDim = [self.__checkIfHaveMatrixDim(x) for x in self.DIMS]
+        haveDim = [self.__checkIfHaveMatrixDim(x) for x in self.DIMS]  # flag, which dims are known
         if all(haveDim): return
         # get dims
-        oldVal = (-1) * np.ones([len(self.DIMS)])
+        oldVal = (-1) * np.ones([len(self.DIMS)])  # flag, that dim not known for all dims
+        # go over all known matrices
         for matname in self.__getAllValuenames(nameClass.matrix):
             readname = self.getVarInfo(matname, nameClass.matrix, nameClass.readname)
             nVar = self.getVarInfo(matname, nameClass.matrix, nameClass.nVar)
             mat = readMatrixFromText(self.filetext, readname, nVar)
+            # check for each dim, if they match previous dimensions
             for i in range(0, len(self.DIMS)):
                 haveDim, oldVal = self.__checkIfDimsMatch(mat, i, haveDim, oldVal)
             if all(haveDim): return
         raise Exception('\
             \nNumber of Depth levels not defined. \
             \nNeeded as direct input ("number of depth levels = ...") \
-            \nor can be derived from resting state conditions.\n')
+            \nor can be derived from resting state conditions.\n')  # numCompartments known from definition
 
     ''' __init_matrices: initialize all matrices needed '''
     def __init_matrices(self):
@@ -186,18 +212,21 @@ class Model_Parameters:
     def __parse(self, varname, vartype=nameClass.matrix, bold=False):
         readname = self.getVarInfo(varname, vartype, nameClass.readname, bold)
         wouldThrow = self.getVarInfo(varname, vartype, nameClass.throwException, bold)
+        # read in single variable
         if vartype == nameClass.single: 
             typestring = self.getVarInfo(varname, vartype, nameClass.type, bold)
             res = readValFromText(self.filetext, readname, typestring)
             if res is None:
                 res = self.getVarInfo(varname, vartype, nameClass.defaultVal, bold)
                 if not wouldThrow and not bold: warn(f'{readname} not given. Using defaultVal {varname} = {res}')
-        if vartype == nameClass.matrix:
-            res = getattr(self, varname, None)
+        # read in matrix
+        elif vartype == nameClass.matrix:
             nVar = self.getVarInfo(varname, vartype, nameClass.nVar, bold)
+            res = getattr(self, varname, None)  # matrix with default values, more efficient when given as input
             res = readMatrixFromText(self.filetext, readname, self.numCompartments, self.numDepths, nVar, res)
-        if not bold: setattr(self, varname, res)
-        else: self.boldparams[varname] = res
+        # set as variable in self
+        self.setVar(varname, res, bold)
+        # add to error message, if unsuccesful
         if wouldThrow and self.__isInit(varname, vartype, bold): self.__addNewException(readname)
         return res
 
@@ -214,6 +243,7 @@ class Model_Parameters:
     
     ''' __BOLDcheck: check, that all BOLD-parameters are there '''
     def __BOLDcheck(self, vartype):
+        # for all bold-params
         for varname in self.__getAllValuenames(vartype, bold=True):
             if self.__isInit(varname, vartype, bold=True):
                 if varname == 'E0': 
@@ -222,7 +252,7 @@ class Model_Parameters:
                     
     ''' __parse_parameterFile: read all required parameters from the parameter file '''
     def __parse_parameterFile(self, filename):
-        self._exception = ''  # throw exception if values are missing
+        self._exception = ''  # throw exception if values are missing (collect all misses before throwing)
         self.filetext = getFileText(filename)  # get total file as string
         # get singular values
         for valuename in self.__getAllValuenames(nameClass.single): self.__parse(valuename, nameClass.single)
@@ -230,7 +260,7 @@ class Model_Parameters:
         self.__getBasicMatrixDims()
         self.__init_matrices()  # need init, so that they have correct initVal
         for matname in self.__getAllValuenames(nameClass.matrix): self.__parse(matname)
-        # check init conditions (need 2 out of 3 -> can't just use general exception) 
+        # check init conditions (need 2 out of 3 -> can't just use __addNewException) 
         if sum(not self.__isInit(x) for x in ['V0', 'F0', 'tau0']) < 2: 
             self._exception = self._exception + \
                 '\nResting conditions required. Define three columns of F0, V0 or tau0 (see comments for specific format). '
@@ -249,12 +279,12 @@ class Model_Parameters:
         # throw exception if anything is missing
         if len(self._exception) > 0: raise Exception(self._exception + '\n\n')
 
-# ---------------------------------  CHECK IF INPUT IS VIABLE  -------------------------------- 
+# ---------------------------------  CHECK IF F0,V0,tau0 INPUT IS VIABLE  -------------------------------- 
     ''' __countChangedVals: count, how many inserted values are on one layer '''
     def __countChangedVals(self, matrix, varname):
         return sum(matrix != self.__getInitVal(varname) * np.ones(np.size(matrix)))
 
-    ''' __throwIfFailed: raise exception, if input is not viable '''
+    ''' __throwIfFailed: raise exception, if FVt input is not viable '''
     def __throwIfFailed(self, under, over):
         errormsg = ''
         if under > 0: errormsg = errormsg + f'under-determined on {under} layer'
@@ -394,3 +424,29 @@ class Model_Parameters:
                                f"{self.getVarInfo('E0', nameClass.matrix, nameClass.readname)} "
                                f"as matrix [{self.DIMS[0]}, {self.DIMS[1]}].\n"
                                f"Alternatively, give CMRO2 as inputfile into 'Input_Timeline'.\n\n")
+
+# -----------------------------  CHANGE A SPECIFIC VALUE (LATER)  -------------------------------
+    ''' changeVar: change value of a single variable. 
+        Calculate other FVT value if FVT changed.
+        Change only specific index [x,y] of matrix, if index given (entire value if index==[]). '''
+    def changeVar(self, varname, new_val, index=[], changeFVT='t'):
+        # find out where the variable is stored
+        successFlag = False
+        for vartype in [nameClass.single, nameClass.matrix]:
+            for b in [False, True]:
+                if varname in self.__getAllValuenames(vartype, bold=b):
+                    successFlag = True
+                    break
+        # error catching
+        if not successFlag: 
+            warn(f"Tried to change variable of unknown name. \
+                {varname} not found in Model_Parameters.")
+            return
+        # change variable (now that b is known)
+        if vartype==nameClass.matrix and index!=[]:
+            old_mat = self.getVar(varname, bold=b)
+            old_mat[index] = new_val
+            new_val = old_mat
+        self.setVar(varname, new_val, b)
+        # change FVT if necessary
+

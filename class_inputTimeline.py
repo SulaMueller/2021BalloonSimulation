@@ -35,7 +35,7 @@ class Input_Timeline:
         self.f_arteriole = f_new
     def __set_neural(self, n_new):
         self.neural_input = n_new
-    def set_input(self, v_new, inputtype):
+    def set_input(self, v_new, inputtype: int):
         if inputtype == self.INDEX_FLOW: self.__set_fArteriole(v_new)
         if inputtype == self.INDEX_NEURO: self.__set_neural(v_new)
         self.available_input[inputtype] = True 
