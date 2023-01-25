@@ -99,15 +99,7 @@ class Model_Parameters:
         self.__checkQ()  # make sure, given input is sufficient to calculate ox-extraction (q, dq)
         clearAttrs(self, ['filetext', 'haveBOLDparams'])
 
-# --------------------------------------  HELPERS / GET-FUNCTIONS --------------------------------------------
-    ''' __setAllCONSTS: give each string in attributes given so far a value ( eg self.ARTERIOLE = 0 ) '''
-    def __setAllCONSTS(self):
-        # get all attributes defined so far
-        for headname in [x for x in [i for i in self.__dict__.keys()]]:
-            head = getattr(self, headname)
-            # set each individual string as attribute with index as value
-            for i in range(0, len(head)): setattr(self, head[i], i)
-
+# --------------------------------------  GET-FUNCTIONS  --------------------------------------------
     ''' __getReadable: get part of "readableVars" that is bold/not bold (needed for __getAllValuenames) '''
     def __getReadable(self, bold=False):
         if not bold: return self.readableVars
@@ -128,17 +120,69 @@ class Model_Parameters:
     def __getInitVal(self, varname, vartype=nameClass.matrix, bold=False):
         return self.getVarInfo(varname, vartype, nameClass.defaultVal, bold)
     
-    def getVar(self, varname, bold=False):
+    ''' getVarValue: returns the value of a specific variable by varname '''
+    def getVarValue(self, varname, bold=False):
         if not bold: x = getattr(self, varname, None)
         else: x = self.boldparams[varname]
         return x
+    
+    ''' __findVarname: find out, where a variable <varname> is stored (boldparams or not + single/matrix) '''
+    def __findVarname(self, varname):
+        for vartype in [nameClass.single, nameClass.matrix]:
+            for b in [False, True]:
+                if varname in self.__getAllValuenames(vartype, bold=b):
+                    return vartype, b
+        return None, None
 
-# ---------------------------------  EXPLICIT READ-IN  ----------------------------------------
-    ''' setVar: set a variable as entry of self '''
-    def setVar(self, varname, val, bold=False):
+# --------------------------------------  SET-FUNCTIONS  ----------------------------------------
+    ''' __setAllCONSTS: give each string in attributes given so far a value ( eg self.ARTERIOLE = 0 ) '''
+    def __setAllCONSTS(self):
+        # get all attributes defined so far
+        for headname in [x for x in [i for i in self.__dict__.keys()]]:
+            head = getattr(self, headname)
+            # set each individual string as attribute with index as value
+            for i in range(0, len(head)): setattr(self, head[i], i)
+    
+    ''' __setVar: set a variable as attribute of self '''
+    def __setVar(self, varname, val, bold=False):
         if not bold: setattr(self, varname, val)
         else: self.boldparams[varname] = val
+ 
+    ''' changeVar: change value of a single variable. 
+        Calculate other FVT value if FVT changed.
+        Change only specific index [numCompartments, numDepths] of matrix, if index given (change entire matrix if index==[]). 
+        returns, if change was successful '''
+    def changeVar(self, varname, new_val, index=[], changeFVT='t'):
+        # find out where the variable is stored
+        vartype, b = self.__findVarname(varname)
+        # error catching
+        if vartype is None or b is None: 
+            warn(f"Tried to change variable of unknown name. {varname} not found in Model_Parameters.")
+            return False
+        # V0, tau0 can not be changed in arteriole compartment
+        if varname in ['V0', 'tau0'] and index!=[]:
+            if index[0] == self.ARTERIOLE:
+                warn(f"Tried to change {varname} in arteriole compartment. Irrelevant parameter. Change in venule/vein compartment or consider changing flow.")
+                return False
+        # if matrix entry, copy old matrix and change single index
+        if vartype==nameClass.matrix and index!=[]:
+            old_mat = self.getVarValue(varname, bold=b)
+            old_mat[index] = new_val
+            # change FVT if necessary
+            if varname in ['F0', 'V0', 'tau0'] and index!=[]: 
+                if changeFVT[0] in ['v', 'V']: self.__calcV(index[0], index[1])
+                if changeFVT[0] in ['f', 'F']: self.__calcF(index[0], index[1])
+                if changeFVT[0] in ['t', 'T']: self.__calcTau(index[0], index[1])
+                # check flow conditions
+                # ToDo 
 
+
+            new_val = old_mat
+        # explicitly change variable
+        self.__setVar(varname, new_val, b)
+        return True
+
+# ---------------------------------  READ-IN FROM FILE ----------------------------------------
     ''' __addNewException: add a new line of errormessage if a required value is missing '''
     def __addNewException(self, readname):
         self._exception = self._exception + f'\n{readname} missing. Define it in {self.parameter_file}.'
@@ -225,7 +269,7 @@ class Model_Parameters:
             res = getattr(self, varname, None)  # matrix with default values, more efficient when given as input
             res = readMatrixFromText(self.filetext, readname, self.numCompartments, self.numDepths, nVar, res)
         # set as variable in self
-        self.setVar(varname, res, bold)
+        self.__setVar(varname, res, bold)
         # add to error message, if unsuccesful
         if wouldThrow and self.__isInit(varname, vartype, bold): self.__addNewException(readname)
         return res
@@ -263,7 +307,7 @@ class Model_Parameters:
         # check init conditions (need 2 out of 3 -> can't just use __addNewException) 
         if sum(not self.__isInit(x) for x in ['V0', 'F0', 'tau0']) < 2: 
             self._exception = self._exception + \
-                '\nResting conditions required. Define three columns of F0, V0 or tau0 (see comments for specific format). '
+                '\nResting conditions required. Define two columns of F0, V0 or tau0 (see comments for specific format). '
         # get BOLD-parameters
         self.boldparams = { 'gamma0': 2*np.pi*42.58*pow(10,6) }
         boldparams_tmp, _, titles = readMatrixFromText(
@@ -310,8 +354,8 @@ class Model_Parameters:
                                               or the compartment where it can be calculated '''
     def __checkInput(self):
         # init values
-        under = 0
-        over = 0
+        under = 0  # underdetermined layers
+        over = 0  # overdetermined layers
         haveF0 = np.zeros([self.numDepths, 2])  # row1: haveF0; row2: compartment with 2 values (if not haveF0)
         valsPerLayer = self.numCompartments
         # go through all layers
@@ -341,14 +385,18 @@ class Model_Parameters:
         return haveF0
 
 # ----------------------------------  FILL V0, F0, TAU0  ---------------------------------------
+    def __calcV(self, k,d): self.V0[k,d] = self.F0[k,d] * self.tau0[k,d]
+    def __calcF(self, k,d): self.F0[k,d] = self.V0[k,d] / self.tau0[k,d]
+    def __calcTau(self, k,d): self.tau0[k,d] = self.V0[k,d] / self.F0[k,d]
+
     ''' __getThirdValueVFt: get one value for {tau0 = V0/F0} '''
     def __getThirdValueVFt(self, k,d):
         f = self.F0[k,d] != self.__getInitVal('F0')
         v = self.V0[k,d] != self.__getInitVal('V0')
         t = self.tau0[k,d] != self.__getInitVal('tau0')
-        if not v and f and t: self.V0[k,d] = self.F0[k,d] * self.tau0[k,d]
-        if not f and v and t: self.F0[k,d] = self.V0[k,d] / self.tau0[k,d]
-        if not t and v and f: self.tau0[k,d] = self.V0[k,d] / self.F0[k,d]
+        if not v and f and t: self.__calcV(k,d)
+        if not f and v and t: self.__calcF(k,d)
+        if not t and v and f: self.__calcTau(k,d)
         
     ''' __fillVFt: get all values for V0, F0, tau0 (assume requirements are met) '''
     def __fillVFt(self, haveF0):
@@ -425,28 +473,5 @@ class Model_Parameters:
                                f"as matrix [{self.DIMS[0]}, {self.DIMS[1]}].\n"
                                f"Alternatively, give CMRO2 as inputfile into 'Input_Timeline'.\n\n")
 
-# -----------------------------  CHANGE A SPECIFIC VALUE (LATER)  -------------------------------
-    ''' changeVar: change value of a single variable. 
-        Calculate other FVT value if FVT changed.
-        Change only specific index [x,y] of matrix, if index given (entire value if index==[]). '''
-    def changeVar(self, varname, new_val, index=[], changeFVT='t'):
-        # find out where the variable is stored
-        successFlag = False
-        for vartype in [nameClass.single, nameClass.matrix]:
-            for b in [False, True]:
-                if varname in self.__getAllValuenames(vartype, bold=b):
-                    successFlag = True
-                    break
-        # error catching
-        if not successFlag: 
-            warn(f"Tried to change variable of unknown name. \
-                {varname} not found in Model_Parameters.")
-            return
-        # change variable (now that b is known)
-        if vartype==nameClass.matrix and index!=[]:
-            old_mat = self.getVar(varname, bold=b)
-            old_mat[index] = new_val
-            new_val = old_mat
-        self.setVar(varname, new_val, b)
-        # change FVT if necessary
+
 
