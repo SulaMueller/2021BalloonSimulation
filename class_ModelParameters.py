@@ -7,6 +7,7 @@
 @summary:   Class to store general model parameters (read them from file first)
 """
 
+from hashlib import new
 import numpy as np
 from numpy.core.fromnumeric import ndim
 
@@ -147,39 +148,35 @@ class Model_Parameters:
     def __setVar(self, varname, val, bold=False):
         if not bold: setattr(self, varname, val)
         else: self.boldparams[varname] = val
+    
+    def __changeSingleValOfMatrix(self, varname, new_val, index, bold=False):
+        mat = self.getVarValue(varname, bold)
+        mat[index[0], index[1]] = new_val
+        self.__setVar(varname, new_val, bold)
+        return mat
  
     ''' changeVar: change value of a single variable. 
         Calculate other FVT value if FVT changed.
         Change only specific index [numCompartments, numDepths] of matrix, if index given (change entire matrix if index==[]). 
         returns, if change was successful '''
     def changeVar(self, varname, new_val, index=[], changeFVT='t'):
-        # find out where the variable is stored
-        vartype, b = self.__findVarname(varname)
-        # error catching
+        vartype, b = self.__findVarname(varname)  # find out where the variable is stored
         if vartype is None or b is None: 
             warn(f"Tried to change variable of unknown name. {varname} not found in Model_Parameters.")
             return False
-        # V0, tau0 can not be changed in arteriole compartment
-        if varname in ['V0', 'tau0'] and index!=[]:
-            if index[0] == self.ARTERIOLE:
-                warn(f"Tried to change {varname} in arteriole compartment. Irrelevant parameter. Change in venule/vein compartment or consider changing flow.")
-                return False
         # if matrix entry, copy old matrix and change single index
         if vartype==nameClass.matrix and index!=[]:
-            old_mat = self.getVarValue(varname, bold=b)
-            old_mat[index] = new_val
-            # change FVT if necessary
-            if varname in ['F0', 'V0', 'tau0'] and index!=[]: 
-                if changeFVT[0] in ['v', 'V']: self.__calcV(index[0], index[1])
-                if changeFVT[0] in ['f', 'F']: self.__calcF(index[0], index[1])
-                if changeFVT[0] in ['t', 'T']: self.__calcTau(index[0], index[1])
-                # check flow conditions
-                # ToDo 
-
-
-            new_val = old_mat
-        # explicitly change variable
-        self.__setVar(varname, new_val, b)
+            if varname in ['F0', 'V0', 'tau0']: 
+                # V0, tau0 can not be changed in arteriole compartment
+                if varname in ['V0', 'tau0'] and index[0] == self.ARTERIOLE:
+                    warn(f"Tried to change {varname} in arteriole compartment. Irrelevant parameter. Change in venule/vein compartment or consider changing flow.")
+                    return False
+                # change values and all dependencies
+                self.__changeVFt(varname, new_val, index, changeFVT)
+            else:  # matrix, but not FVt
+                self.__changeSingleValOfMatrix(varname, new_val, index, b)
+        else:  # explicitly change single variable
+            self.__setVar(varname, new_val, b)
         return True
 
 # ---------------------------------  READ-IN FROM FILE ----------------------------------------
@@ -244,13 +241,17 @@ class Model_Parameters:
     
     ''' __isInit: return False, if a matrix/value is not in initial conditions any more
                   return True, if is in initial conditions or hasn't been initialized yet '''
-    def __isInit(self, varname, vartype=nameClass.matrix, bold=False):
-        if not bold: var = getattr(self, varname, None)
-        else: var = self.boldparams[varname]
+    def __isInitMatrix(self, varname, vartype=nameClass.matrix, bold=False):
+        var = self.getVarValue(varname, bold)
         if var is None: return True
         initVal = self.__getInitVal(varname, vartype, bold)
         if vartype == nameClass.single: return var == initVal
         else: return (var==initVal).all()
+    
+    ''' __isInitMatrixValue: return False, if an entry in a matrix is not in initial conditions any more '''
+    def __isInitMatrixValue(self, varname, k, d, bold=False):
+        mat = self.getVarValue(varname, bold)
+        return mat[k,d] != self.__getInitVal(varname)
 
     ''' __parse: read a single value or matrix (vartype = 'single'/'matrix') from the parameter file '''
     def __parse(self, varname, vartype=nameClass.matrix, bold=False):
@@ -271,7 +272,7 @@ class Model_Parameters:
         # set as variable in self
         self.__setVar(varname, res, bold)
         # add to error message, if unsuccesful
-        if wouldThrow and self.__isInit(varname, vartype, bold): self.__addNewException(readname)
+        if wouldThrow and self.__isInitMatrix(varname, vartype, bold): self.__addNewException(readname)
         return res
 
     ''' __E0check: E0 can be given as part of boldparams or independently -> make sure at least one is given. '''
@@ -289,7 +290,7 @@ class Model_Parameters:
     def __BOLDcheck(self, vartype):
         # for all bold-params
         for varname in self.__getAllValuenames(vartype, bold=True):
-            if self.__isInit(varname, vartype, bold=True):
+            if self.__isInitMatrix(varname, vartype, bold=True):
                 if varname == 'E0': 
                     if self.__E0check(): continue
                 self.__BOLDfail(varname, vartype)
@@ -305,7 +306,7 @@ class Model_Parameters:
         self.__init_matrices()  # need init, so that they have correct initVal
         for matname in self.__getAllValuenames(nameClass.matrix): self.__parse(matname)
         # check init conditions (need 2 out of 3 -> can't just use __addNewException) 
-        if sum(not self.__isInit(x) for x in ['V0', 'F0', 'tau0']) < 2: 
+        if sum(not self.__isInitMatrix(x) for x in ['V0', 'F0', 'tau0']) < 2: 
             self._exception = self._exception + \
                 '\nResting conditions required. Define two columns of F0, V0 or tau0 (see comments for specific format). '
         # get BOLD-parameters
@@ -357,25 +358,25 @@ class Model_Parameters:
         under = 0  # underdetermined layers
         over = 0  # overdetermined layers
         haveF0 = np.zeros([self.numDepths, 2])  # row1: haveF0; row2: compartment with 2 values (if not haveF0)
-        valsPerLayer = self.numCompartments
+        valsPerLayer = self.numCompartments  # 3
         # go through all layers
         for d in range(0, self.numDepths):
             # get number of elements
-            sF0 = self.__countChangedVals(self.F0[:,d], 'F0')
-            sV0 = self.__countChangedVals(self.V0[self.VENULE:self.numCompartments,d], 'V0')
-            st0 = self.__countChangedVals(self.tau0[self.VENULE:self.numCompartments,d], 'tau0')
-            # check if error
-            if sF0 + sV0 + st0 != valsPerLayer or sF0 > 1:
-                under += sF0 + sV0 + st0 < valsPerLayer
-                over += sF0 + sV0 + st0 > valsPerLayer or sF0 > 1
+            numF = self.__countChangedVals(self.F0[:,d], 'F0')
+            numV = self.__countChangedVals(self.V0[self.VENULE:self.numCompartments,d], 'V0')
+            numT = self.__countChangedVals(self.tau0[self.VENULE:self.numCompartments,d], 'tau0')
+            # check if error (need exactly 3 vals per layer, max one of them can be F)
+            if numF + numV + numT != valsPerLayer or numF > 1:
+                under += numF + numV + numT < valsPerLayer
+                over += numF + numV + numT > valsPerLayer or numF > 1
                 continue
             # save if have F0
-            haveF0[d,0] = sF0 == 1
+            haveF0[d,0] = numF == 1
             # check that at least one value for venule, vein compartments each
             for k in range(self.VENULE, self.numCompartments):
                 change = \
-                      int(self.V0[k,d] != self.__getInitVal('V0')) \
-                    + int(self.tau0[k,d] != self.__getInitVal('tau0'))
+                      int(self.__isInitMatrixValue('V0', k, d)) \
+                    + int(self.__isInitMatrixValue('tau0', k, d)) 
                 under += int(change==0)
                 # save compartment where F0 can be calculated
                 if not haveF0[d,0] and change == 2:
@@ -389,25 +390,33 @@ class Model_Parameters:
     def __calcF(self, k,d): self.F0[k,d] = self.V0[k,d] / self.tau0[k,d]
     def __calcTau(self, k,d): self.tau0[k,d] = self.V0[k,d] / self.F0[k,d]
 
-    ''' __getThirdValueVFt: get one value for {tau0 = V0/F0} '''
-    def __getThirdValueVFt(self, k,d):
-        f = self.F0[k,d] != self.__getInitVal('F0')
-        v = self.V0[k,d] != self.__getInitVal('V0')
-        t = self.tau0[k,d] != self.__getInitVal('tau0')
+    ''' __getThirdValueVFt: get one value for {tau0 = V0/F0} 
+                            hardVal: gives possibility to hardcode, which value to calculate 
+                            otherwise: finds out automatically, which value to calculate '''
+    def __getThirdValueVFt(self, k,d, hardVal=None):
+        if hardVal is None:
+            f = self.__isInitMatrixValue('F0', k, d)
+            v = self.__isInitMatrixValue('V0', k, d)
+            t = self.__isInitMatrixValue('tau0', k, d)
+        else:
+            f = not hardVal[0] in ['f', 'F']
+            v = not hardVal[0] in ['v', 'V']
+            t = not hardVal[0] in ['t', 'T']
         if not v and f and t: self.__calcV(k,d)
         if not f and v and t: self.__calcF(k,d)
         if not t and v and f: self.__calcTau(k,d)
         
     ''' __fillVFt: get all values for V0, F0, tau0 (assume requirements are met) '''
     def __fillVFt(self, haveF0):
+        # go layer-wise, start in lowest layer because of flow-dependencies
         for d in range(self.numDepths-1, -1, -1):
             # make sure there is exactly one column of F0
             if not haveF0[d,0]:
-                k = int(haveF0[d,1])
+                k = int(haveF0[d,1])  # the commpartment, where F can be calculated
                 self.__getThirdValueVFt(k,d)
-            # fill F0
+            # fill F0 in all compartments
             self.__makeFlowMeetConditions(d)
-            # tau0 = V0/F0
+            # get tau0, V0 by tau0 = V0/F0
             for k in range(self.VENULE, self.numCompartments):
                 self.__getThirdValueVFt(k,d)
     
@@ -415,6 +424,32 @@ class Model_Parameters:
     def __completeVFt(self):
         haveF0 = self.__checkInput()
         self.__fillVFt(haveF0)
+
+    ''' __changeVFt: change a single value of VFt. Do all follow-up changes:
+                    1) make flow meet conditions
+                    2) change dependentVar for all flow changes '''
+    def __changeVFt(self, varname, new_val, index, dependentVar='tau0'):
+        k = index[0]
+        d = index[1]
+        # change value and dependent var
+        self.__changeSingleValOfMatrix(varname, new_val, index)
+        self.__getThirdValueVFt(k, d, hardVal=dependentVar) 
+        # apply flow conditions
+        if 'f' in [varname, dependentVar] or 'F' in [varname, dependentVar]:
+            # flow is changed first, the other variable is dependent
+            if dependentVar[0] in ['f', 'F']:
+                dependentVar = varname
+                varname = 'F0'
+            # get flow in current depth for all compartments
+            k_withFlow = k  # has already been changed
+            for k in range(0, self.numCompartments):
+                if k==k_withFlow: continue
+                self.__makeFlowMeetCondition_oneCompartment(k, k_withFlow, d)
+                self.__getThirdValueVFt(k, d, hardVal=dependentVar)
+            # get flow for VEIN in lower depths
+            for d in range(index[1]-1, -1, -1):
+                self.__makeFlowMeetCondition_oneCompartment(self.VEIN, self.VENULE, d)
+                self.__getThirdValueVFt(self.VEIN, d, hardVal=dependentVar)
 
 # -------------------------------------  GET F0  ----------------------------------------------
     ''' __listIncludesCompartment: return, whether a specific compartment is included in a list '''
@@ -428,30 +463,32 @@ class Model_Parameters:
     ''' __findChangedVal: return first compartment of list where flow was changed since init of matrix '''
     def __findChangedVal(self, k_list, d):
         for k in k_list:
-            if self.F0[k,d] != self.__getInitVal('F0'): 
+            if not self.__isInitMatrixValue('F0', k, d): 
                 return k
     
     ''' __makeFlowMeetCondition_oneCompartment: make flow in one compartment meet resting state conditions '''
-    def __makeFlowMeetCondition_oneCompartment(self, k, k_groundTruth, d):
-        if not self.__needDeeperLayerFormula([k, k_groundTruth], d):  # if isn't higher layer of VEIN
-            self.F0[k,d] = self.F0[k_groundTruth,d]
-        elif k_groundTruth == self.VEIN:
-            self.F0[k,d] = self.F0[self.VEIN,d] - self.F0[self.VEIN,d+1]
-        else:
-            self.F0[k,d] = self.F0[k_groundTruth,d] + self.F0[self.VEIN,d+1]  
+    def __makeFlowMeetCondition_oneCompartment(self, k, k_withFlow, d):
+        if not self.__needDeeperLayerFormula([k, k_withFlow], d):  # if higher layers of VEIN aren't involved
+            self.F0[k,d] = self.F0[k_withFlow,d]  # 
+        elif k_withFlow == self.VEIN:  # if need deeper layer because k_withFlow is VEIN
+            self.F0[k,d] = self.F0[self.VEIN,d] - self.F0[self.VEIN,d+1]  # arterial=venule flow gives difference between layers
+        else:  # if need deeper layer because k is VEIN
+            self.F0[k,d] = self.F0[k_withFlow,d] + self.F0[self.VEIN,d+1]  
     
-    ''' __makeFlowMeetConditions: make flow in all compartments meet resting state conditions '''
+    ''' __makeFlowMeetConditions: make flow in all compartments meet resting state conditions 
+                                  assume, that exactly one compartment already has flow 
+                                  -> get flow for the other compartments '''
     def __makeFlowMeetConditions(self, d):
         k_list = [self.ARTERIOLE, self.VENULE, self.VEIN]
-        k_groundTruth = self.__findChangedVal(k_list, d)  # the compartment, where flow was defined first
+        k_withFlow = self.__findChangedVal(k_list, d)  # the compartment, where flow was defined first
         for k in range(0, self.numCompartments):
-            if k==k_groundTruth: continue
-            self.__makeFlowMeetCondition_oneCompartment(k, k_groundTruth, d)
+            if k==k_withFlow: continue
+            self.__makeFlowMeetCondition_oneCompartment(k, k_withFlow, d)
 
 # -----------------------------  MAKE SURE Q CAN BE CALCULATED  -------------------------------
     ''' __checkE0: make sure, E0 was given as matrix and not as part of boldparams '''
     def __checkE0(self):
-        if self.__isInit('E0'): return False
+        if self.__isInitMatrix('E0'): return False
         if (self.E0>0.7).any() or (self.E0<0).any(): return False
         for attr in self.boldparams:
             if attr == 'E0': continue
@@ -461,7 +498,7 @@ class Model_Parameters:
     
     ''' __checkQ: make sure, given input is sufficient to calculate ox-extraction (q, dq) '''
     def __checkQ(self):
-        if not self.__isInit('n'): self.oxmode = self._OX_n
+        if not self.__isInitMatrix('n'): self.oxmode = self._OX_n
         elif self.__checkE0(): self.oxmode = self._OX_E0
         else: 
             self.oxmode = self._OX_m
