@@ -425,7 +425,7 @@ class Model_Parameters:
     def __needDeeperLayerFormula(self, k_list, d):
         return self.__listIncludesCompartment(k_list, self.VEIN) and d<self.numDepths-1
     
-    ''' __findChangedVal: return first compartment of list that was changed since init of matrix '''
+    ''' __findChangedVal: return first compartment of list where flow was changed since init of matrix '''
     def __findChangedVal(self, k_list, d):
         for k in k_list:
             if self.F0[k,d] != self.__getInitVal('F0'): 
@@ -433,18 +433,17 @@ class Model_Parameters:
     
     ''' __makeFlowMeetCondition_oneCompartment: make flow in one compartment meet resting state conditions '''
     def __makeFlowMeetCondition_oneCompartment(self, k, k_groundTruth, d):
-        if not self.__needDeeperLayerFormula([k, k_groundTruth], d):
+        if not self.__needDeeperLayerFormula([k, k_groundTruth], d):  # if isn't higher layer of VEIN
             self.F0[k,d] = self.F0[k_groundTruth,d]
-        else:  
-            if k_groundTruth == self.VEIN:
-                self.F0[k,d] = self.F0[self.VEIN,d] - self.F0[self.VEIN,d+1]
-            else:
-                self.F0[k,d] = self.F0[k_groundTruth,d] + self.F0[self.VEIN,d+1]  
+        elif k_groundTruth == self.VEIN:
+            self.F0[k,d] = self.F0[self.VEIN,d] - self.F0[self.VEIN,d+1]
+        else:
+            self.F0[k,d] = self.F0[k_groundTruth,d] + self.F0[self.VEIN,d+1]  
     
     ''' __makeFlowMeetConditions: make flow in all compartments meet resting state conditions '''
     def __makeFlowMeetConditions(self, d):
         k_list = [self.ARTERIOLE, self.VENULE, self.VEIN]
-        k_groundTruth = self.__findChangedVal(k_list, d)
+        k_groundTruth = self.__findChangedVal(k_list, d)  # the compartment, where flow was defined first
         for k in range(0, self.numCompartments):
             if k==k_groundTruth: continue
             self.__makeFlowMeetCondition_oneCompartment(k, k_groundTruth, d)
