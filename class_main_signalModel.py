@@ -33,30 +33,6 @@ class SignalModel:
         self.neural_model = Neural_Model(self.neural_params, self.params, self.input_TimeLine)
         # create balloon model (includes BOLD and VASO signals)
         self.balloon = Balloon(self.params, self.input_TimeLine)
-    
-    ''' __findDictWithParameter: find a specific attribute within given possible dictionaries
-        return: the dictionary that has parameterID '''
-    def __findDictWithParameter(self, parameterID):
-        if parameterID in self.params.__dict__: return self.params
-        if parameterID in self.params.boldparams.keys(): return self.params.boldparams
-        if parameterID in self.neural_params.__dict__: return self.neural_params
-
-    ''' changeModelParameter: change a single attribute to new_val (find it first) '''
-    def changeModelParameter(self, parameterID, new_val):
-        x = self.__findDictWithParameter(parameterID)   # find the parameter 
-        setattr(x, parameterID, new_val)  # set to new value
-        self.__createModelInstances()  # recalculate model instances
-
-    ''' changeModelMatrix: change a matrix attribute 
-        a) index=[] -> new_val is entire matrix
-        b) index=[x,y...] -> new_val is the new value of matrix at position index '''
-    def changeModelMatrix(self, parameterID, new_val, index=[]):
-        if index==[]: self.changeModelParameter(parameterID, new_val)
-        else:
-            x = self.__findDictWithParameter(parameterID)   # find the parameter 
-            old_mat = getattr(x,parameterID)
-            old_mat[index] = new_val
-            self.changeModelParameter(parameterID, old_mat)
 
 ''' =============================  EXECUTE ======================== '''
 # parameter files
@@ -67,9 +43,9 @@ input_function_file = parameter_file
 signal = SignalModel(parameter_file, neural_parameter_file, input_function_file)
 
 # test
-signal.changeModelParameter('B0', 3)
-signal.changeModelMatrix('epsilon', [0.2, 0.2, 0.2])
-signal.changeModelMatrix('Hct', 2, 2)
+signal.params.changeVar('F0', 7, [1,3])
+print('end')
+
             
         
 

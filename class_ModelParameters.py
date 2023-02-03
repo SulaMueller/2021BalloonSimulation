@@ -117,15 +117,14 @@ class Model_Parameters:
     def getVarInfo(self, varname, vartype, readinfo, bold=False):
         return self.__getReadable(bold)[vartype][varname][nameClass.readindex[readinfo]]
     
+    ''' getVarValue: returns the value of a specific variable by varname '''
+    def getVarValue(self, varname, bold=False):
+        if not bold: return getattr(self, varname, None)
+        else: return self.boldparams[varname]
+    
     ''' __getInitVal: return initial/ default val for a varname '''
     def __getInitVal(self, varname, vartype=nameClass.matrix, bold=False):
         return self.getVarInfo(varname, vartype, nameClass.defaultVal, bold)
-    
-    ''' getVarValue: returns the value of a specific variable by varname '''
-    def getVarValue(self, varname, bold=False):
-        if not bold: x = getattr(self, varname, None)
-        else: x = self.boldparams[varname]
-        return x
     
     ''' __findVarname: find out, where a variable <varname> is stored (boldparams or not + single/matrix) '''
     def __findVarname(self, varname):
@@ -149,35 +148,6 @@ class Model_Parameters:
         if not bold: setattr(self, varname, val)
         else: self.boldparams[varname] = val
     
-    def __changeSingleValOfMatrix(self, varname, new_val, index, bold=False):
-        mat = self.getVarValue(varname, bold)
-        mat[index[0], index[1]] = new_val
-        self.__setVar(varname, new_val, bold)
-        return mat
- 
-    ''' changeVar: change value of a single variable. 
-        Calculate other FVT value if FVT changed.
-        Change only specific index [numCompartments, numDepths] of matrix, if index given (change entire matrix if index==[]). 
-        returns, if change was successful '''
-    def changeVar(self, varname, new_val, index=[], changeFVT='t'):
-        vartype, b = self.__findVarname(varname)  # find out where the variable is stored
-        if vartype is None or b is None: 
-            warn(f"Tried to change variable of unknown name. {varname} not found in Model_Parameters.")
-            return False
-        # if matrix entry, copy old matrix and change single index
-        if vartype==nameClass.matrix and index!=[]:
-            if varname in ['F0', 'V0', 'tau0']: 
-                # V0, tau0 can not be changed in arteriole compartment
-                if varname in ['V0', 'tau0'] and index[0] == self.ARTERIOLE:
-                    warn(f"Tried to change {varname} in arteriole compartment. Irrelevant parameter. Change in venule/vein compartment or consider changing flow.")
-                    return False
-                # change values and all dependencies
-                self.__changeVFt(varname, new_val, index, changeFVT)
-            else:  # matrix, but not FVt
-                self.__changeSingleValOfMatrix(varname, new_val, index, b)
-        else:  # explicitly change single variable
-            self.__setVar(varname, new_val, b)
-        return True
 
 # ---------------------------------  READ-IN FROM FILE ----------------------------------------
     ''' __addNewException: add a new line of errormessage if a required value is missing '''
@@ -399,9 +369,9 @@ class Model_Parameters:
             v = self.__isInitMatrixValue('V0', k, d)
             t = self.__isInitMatrixValue('tau0', k, d)
         else:
-            f = not hardVal[0] in ['f', 'F']
-            v = not hardVal[0] in ['v', 'V']
-            t = not hardVal[0] in ['t', 'T']
+            f = not (hardVal[0] in ['f', 'F'])
+            v = not (hardVal[0] in ['v', 'V'])
+            t = not (hardVal[0] in ['t', 'T'])
         if not v and f and t: self.__calcV(k,d)
         if not f and v and t: self.__calcF(k,d)
         if not t and v and f: self.__calcTau(k,d)
@@ -424,32 +394,6 @@ class Model_Parameters:
     def __completeVFt(self):
         haveF0 = self.__checkInput()
         self.__fillVFt(haveF0)
-
-    ''' __changeVFt: change a single value of VFt. Do all follow-up changes:
-                    1) make flow meet conditions
-                    2) change dependentVar for all flow changes '''
-    def __changeVFt(self, varname, new_val, index, dependentVar='tau0'):
-        k = index[0]
-        d = index[1]
-        # change value and dependent var
-        self.__changeSingleValOfMatrix(varname, new_val, index)
-        self.__getThirdValueVFt(k, d, hardVal=dependentVar) 
-        # apply flow conditions
-        if 'f' in [varname, dependentVar] or 'F' in [varname, dependentVar]:
-            # flow is changed first, the other variable is dependent
-            if dependentVar[0] in ['f', 'F']:
-                dependentVar = varname
-                varname = 'F0'
-            # get flow in current depth for all compartments
-            k_withFlow = k  # has already been changed
-            for k in range(0, self.numCompartments):
-                if k==k_withFlow: continue
-                self.__makeFlowMeetCondition_oneCompartment(k, k_withFlow, d)
-                self.__getThirdValueVFt(k, d, hardVal=dependentVar)
-            # get flow for VEIN in lower depths
-            for d in range(index[1]-1, -1, -1):
-                self.__makeFlowMeetCondition_oneCompartment(self.VEIN, self.VENULE, d)
-                self.__getThirdValueVFt(self.VEIN, d, hardVal=dependentVar)
 
 # -------------------------------------  GET F0  ----------------------------------------------
     ''' __listIncludesCompartment: return, whether a specific compartment is included in a list '''
@@ -509,5 +453,84 @@ class Model_Parameters:
                                f"as matrix [{self.DIMS[0]}, {self.DIMS[1]}].\n"
                                f"Alternatively, give CMRO2 as inputfile into 'Input_Timeline'.\n\n")
 
+# -----------------------------------  CHANGE-FUNCTIONS  ----------------------------------------
+    ''' __changeSingleValOfMatrix: change single entry in a matrix <varname> '''
+    def __changeSingleValOfMatrix(self, varname, new_val, index, bold=False):
+        mat = self.getVarValue(varname, bold)
+        mat[index[0], index[1]] = new_val
+        self.__setVar(varname, mat, bold)
+        return mat
+ 
+    ''' changeVar: change value of a single variable. 
+        Calculate other FVT value if FVT changed.
+        Change only specific index [numCompartments, numDepths] of matrix, if index given (change entire matrix if index==[]). 
+        returns, if change was successful '''
+    def changeVar(self, varname, new_val, index=[], dependentFVT='t'):
+        vartype, bold = self.__findVarname(varname)  # find out where the variable is stored
+        if vartype is None or bold is None: 
+            warn(f"Tried to change variable of unknown name. {varname} not found in Model_Parameters.")
+            return False
+        # if matrix 
+        if vartype==nameClass.matrix and index!=[]:
+            if varname in ['F0', 'V0', 'tau0']: 
+                # V0, tau0 can not be changed in arteriole compartment
+                if varname in ['V0', 'tau0'] and index[0] == self.ARTERIOLE:
+                    warn(f"Tried to change {varname} in arteriole compartment. Irrelevant parameter. Change in venule/vein compartment or consider changing flow.")
+                    return False
+                # change values and all dependencies
+                self.__changeVFt(varname, new_val, index, dependentFVT)
+            else:  # matrix, but not FVt
+                self.__changeSingleValOfMatrix(varname, new_val, index, bold)
+        else:  # if single variable or entire matrix given 
+            self.__setVar(varname, new_val, bold)
+        return True
+    
+    ''' __changeVFt: change a single value of VFt. Do all follow-up changes:
+                    1) make flow meet conditions
+                    2) change dependentVar for all flow changes '''
+    def __changeVFt(self, varname, new_val, index, dependentVar='tau0'):
+        dependentVar = self.__checkDependent(varname, dependentVar)
+        k = index[0]
+        d = index[1]
+        # change value and dependent var
+        self.__changeSingleValOfMatrix(varname, new_val, index)
+        self.__getThirdValueVFt(k, d, hardVal=dependentVar) 
+        # apply flow conditions
+        if 'f' in [varname[0], dependentVar[0]] or 'F' in [varname[0], dependentVar[0]]:
+            # flow is changed first, the other variable is dependent
+            if dependentVar[0] in ['f', 'F']:
+                dependentVar = varname
+                varname = 'F0'
+            # get flow in current depth for all compartments
+            k_withFlow = k  # has already been changed
+            for k in range(0, self.numCompartments):
+                if k==k_withFlow: continue
+                self.__makeFlowMeetCondition_oneCompartment(k, k_withFlow, d)
+                self.__getThirdValueVFt(k, d, hardVal=dependentVar)
+            # get flow for VEIN in lower depths
+            for d in range(index[1]-1, -1, -1):
+                self.__makeFlowMeetCondition_oneCompartment(self.VEIN, self.VENULE, d)
+                self.__getThirdValueVFt(self.VEIN, d, hardVal=dependentVar)
+    
+    ''' __dependentCheckFailed: define what to do if dependency not clear '''
+    def __dependentCheckFailed(self, varname, case):
+        w0 = 'Change of F0, V0 or tau0 requires info about which dependent variable to change as well [F0, V0 or tau0]. Using default [tau0, V0].'
+        w1 = 'Dependent variable of V0/F0 = tau0 is given as the variable to be changed. Using default [tau0, V0].'
+        if case==0:
+            warn(w0)
+            return 'tau0'
+        elif case==1:
+            warn(w1)
+            if varname is 'tau0': return 'V0'
+            else: return 'tau0'
+
+    ''' __checkDependent: check, if dependentVar is one of [F0, V0, tau0] '''
+    def __checkDependent(self, varname, dependentVar):
+        if dependentVar[0] in ['f', 'F']: dependentVar = 'F0'
+        elif dependentVar[0] in ['v', 'V']: dependentVar = 'V0'
+        elif dependentVar[0] in ['t', 'T']: dependentVar = 'tau0'
+        else: dependentVar = self.__dependentCheckFailed(varname, case=0)
+        if varname is dependentVar: dependentVar = self.__dependentCheckFailed(varname, case=1)
+        return dependentVar
 
 
