@@ -29,10 +29,10 @@ def clearAttrs(obj, attrlist):
 ''' readableVarNameClass: define structure of readableVarClass (see below) '''
 class readableVarNameClass:
     def __init__(self):
-        self.readInfo = ['readname','defaultVal','throwException','type','nVar']  # necessary info to create a readableVar
+        self.readInfo = ['readname','defaultVal','throwException','changeable','type','nVar']  # necessary info to create a readableVar
         self.__setSelfStrings(self.readInfo)  # self.readname = 'readname' for all strings in readInfo
         setattr(self, 'readindex', makeDict(self.readInfo))  # indice of info in readableVar ( self.readindex['readname'] = 0 )
-        self.readindex['nVar'] = 3  # 'nVar' and 'type' share index=3 (depending on whether single/matrix (matrix is always float))
+        self.readindex['nVar'] = len(self.readInfo)-2  # 'nVar' and 'type' share index (depending on whether single/matrix (matrix is always float))
 
         self.vartypes = ['single', 'matrix', 'BOLDvars']
         self.__setSelfStrings(self.vartypes)  # self.single = 'single'
@@ -47,32 +47,32 @@ nameClass = readableVarNameClass()  # initialize instance
                       (assume they are read in via file) '''
 class readableVarClass:
     def __init__(self):
-        self.readableVars = {  # attrname: [name for read-in, defaultVal, throw exception if missing, type/nVar]
+        self.readableVars = {  # attrname: [name for read-in, defaultVal, throw exception if missing, changeable, type/nVar]
             nameClass.single : {
-                'N' : ["number of time points", -1, True, 'int'],
-                'dt' : ["time integration step (dt)", 0.01, False, 'float'],
-                'numDepths' : ["number of depth levels", -1, False, 'int'],
+                'N' : ["number of time points", -1, True, False, 'int'],
+                'dt' : ["time integration step (dt)", 0.01, False, True, 'float'],
+                'numDepths' : ["number of depth levels", -1, False, False, 'int'],
             },
             nameClass.matrix : {
-                'V0' : ['V0', 0, False, 0],
-                'F0' : ['F0', 0, False, 0],
-                'tau0' : ['tau0', 0, False, 0],
-                'alpha' : ['alpha', 1, True, 0],
-                'vet' : ['visco-elastic time constants', 1, True, -1],
-                'E0' : ['E0', 1, False, 0],
-                'n' : ['n-ratio', 1, False, 0]
+                'V0' : ['V0', 0, False, True, 0],
+                'F0' : ['F0', 0, False, True, 0],
+                'tau0' : ['tau0', 0, False, True, 0],
+                'alpha' : ['alpha', 1, True, True, 0],
+                'vet' : ['visco-elastic time constants', 1, True, True, -1],
+                'E0' : ['E0', 1, False, True, 0],
+                'n' : ['n-ratio', 1, False, True, 0]
             },
             nameClass.BOLDvars : { 
                 nameClass.single : {
-                    'B0' : ['B0', -1, False, 'float'],
-                    'dXi': ['dXi', -1, False, 'float'], 
-                    'TE': ['TE', -1, False, 'float']
+                    'B0' : ['B0', -1, False, True, 'float'],
+                    'dXi': ['dXi', -1, False, True, 'float'], 
+                    'TE': ['TE', -1, False, True, 'float']
                 },
                 nameClass.matrix : {
-                    'epsilon' : ['epsilon', -1, False, 0],
-                    'Hct' : ['Hct', -1, False, 0],
-                    'r0' : ['r0', -1, False, 0],
-                    'E0' : ['E0', -1, False, 0]
+                    'epsilon' : ['epsilon', -1, False, True, 0],
+                    'Hct' : ['Hct', -1, False, True, 0],
+                    'r0' : ['r0', -1, False, True, 0],
+                    'E0' : ['E0', -1, False, True, 0]
                 }
             }
         }
@@ -470,6 +470,9 @@ class Model_Parameters:
         if vartype is None or bold is None: 
             warn(f"Tried to change variable of unknown name. {varname} not found in Model_Parameters.")
             return False
+        if not self.getVarInfo(varname, vartype, 'changeable', bold):
+            warn(f"Tried to change {varname}. Unchangeable variable. Ignoring change. Create new read-in instead.")
+            return False
         # if matrix 
         if vartype==nameClass.matrix and index!=[]:
             if varname in ['F0', 'V0', 'tau0']: 
@@ -514,15 +517,12 @@ class Model_Parameters:
     
     ''' __dependentCheckFailed: define what to do if dependency not clear '''
     def __dependentCheckFailed(self, varname, case):
-        w0 = 'Change of F0, V0 or tau0 requires info about which dependent variable to change as well [F0, V0 or tau0]. Using default [tau0, V0].'
-        w1 = 'Dependent variable of V0/F0 = tau0 is given as the variable to be changed. Using default [tau0, V0].'
-        if case==0:
-            warn(w0)
-            return 'tau0'
-        elif case==1:
-            warn(w1)
-            if varname is 'tau0': return 'V0'
-            else: return 'tau0'
+        w = ['Change of F0, V0 or tau0 requires info about which dependent variable to change as well [F0, V0 or tau0]. Using default: ', \
+             'Dependent variable of V0/F0 = tau0 is given as the variable to be changed. Using default: ']
+        if case==1 and varname == 'tau0': dependent = 'V0'
+        else: dependent ='tau0'
+        warn(w[case] + dependent)
+        return dependent
 
     ''' __checkDependent: check, if dependentVar is one of [F0, V0, tau0] '''
     def __checkDependent(self, varname, dependentVar):
@@ -530,7 +530,7 @@ class Model_Parameters:
         elif dependentVar[0] in ['v', 'V']: dependentVar = 'V0'
         elif dependentVar[0] in ['t', 'T']: dependentVar = 'tau0'
         else: dependentVar = self.__dependentCheckFailed(varname, case=0)
-        if varname is dependentVar: dependentVar = self.__dependentCheckFailed(varname, case=1)
+        if varname == dependentVar: dependentVar = self.__dependentCheckFailed(varname, case=1)
         return dependentVar
 
 
