@@ -126,8 +126,8 @@ class Model_Parameters:
     def __getInitVal(self, varname, vartype=nameClass.matrix, bold=False):
         return self.getVarInfo(varname, vartype, nameClass.defaultVal, bold)
     
-    ''' __findVarname: find out, where a variable <varname> is stored (boldparams or not + single/matrix) '''
-    def __findVarname(self, varname):
+    ''' findVarname: find out, where a variable <varname> is stored (boldparams or not + single/matrix) '''
+    def findVarname(self, varname):
         for vartype in [nameClass.single, nameClass.matrix]:
             for b in [False, True]:
                 if varname in self.__getAllValuenames(vartype, bold=b):
@@ -467,7 +467,7 @@ class Model_Parameters:
         Change only specific index [numCompartments, numDepths] of matrix, if index given (change entire matrix if index==[]). 
         returns, if change was successful '''
     def changeVar(self, varname, new_val, index=[], dependentFVT='t'):
-        vartype, bold = self.__findVarname(varname)  # find out where the variable is stored
+        vartype, bold = self.findVarname(varname)  # find out where the variable is stored
         if vartype is None or bold is None: 
             warn(f"Tried to change variable of unknown name. {varname} not found in Model_Parameters.")
             return False

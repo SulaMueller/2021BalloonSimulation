@@ -18,7 +18,7 @@ input_function_file = parameter_file
 
 signal = SignalModel(parameter_file, neural_parameter_file, input_function_file)
 dependency = DependencyGenerator(signal)
-dependency.plotDependency('B0', 0.5, 10, numIt=20)
+dependency.calculateDependency('B0', 1, 10, numIt=10)
 
 
 #changeValue(input_function_file, 'number of time points', new_val=2000)
