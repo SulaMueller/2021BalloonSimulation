@@ -18,7 +18,7 @@ class SignalModel:
         # read in parameters and timeline from files
         self.__readFiles(parameter_file, neural_parameter_file, input_function_file)
         # create model instances
-        self.__createModelInstances()
+        self.createModelInstances()
 
     ''' __readFiles: read given parameter files to create parameter dictionaries '''
     def __readFiles(self, parameter_file, neural_parameter_file, input_function_file):
@@ -27,8 +27,8 @@ class SignalModel:
         self.input_TimeLine = Input_Timeline(self.params, input_function_file)
         # timeline needs params only for N,numCompartments -> assume those won't be changed
     
-    ''' __createModelInstances: create instances of model calculation objects '''
-    def __createModelInstances(self):
+    ''' createModelInstances: create instances of model calculation objects '''
+    def createModelInstances(self):
         # create neural model (will also set flow in input_TimeLine)
         self.neural_model = Neural_Model(self.neural_params, self.params, self.input_TimeLine)
         # create balloon model (includes BOLD and VASO signals)
@@ -42,12 +42,11 @@ input_function_file = parameter_file
 
 signal = SignalModel(parameter_file, neural_parameter_file, input_function_file)
 
-# test
-signal.params.changeVar('F0', 7, [1,3], 's')
-signal.params.changeVar('tau0', 7, [1,3], 's')
-signal.params.changeVar('N', 7)
-print('end')
 
-            
-        
+# test
+#signal.params.changeVar('F0', 7, [1,3], 's')
+#signal.params.changeVar('tau0', 7, [1,3], 's')
+#signal.params.changeVar('N', 7)
+#print('end')
+
 

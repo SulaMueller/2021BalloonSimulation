@@ -221,7 +221,7 @@ class Model_Parameters:
     ''' __isInitMatrixValue: return False, if an entry in a matrix is not in initial conditions any more '''
     def __isInitMatrixValue(self, varname, k, d, bold=False):
         mat = self.getVarValue(varname, bold)
-        return mat[k,d] != self.__getInitVal(varname)
+        return mat[k,d] == self.__getInitVal(varname)
 
     ''' __parse: read a single value or matrix (vartype = 'single'/'matrix') from the parameter file '''
     def __parse(self, varname, vartype=nameClass.matrix, bold=False):
@@ -369,12 +369,12 @@ class Model_Parameters:
             v = self.__isInitMatrixValue('V0', k, d)
             t = self.__isInitMatrixValue('tau0', k, d)
         else:
-            f = not (hardVal[0] in ['f', 'F'])
-            v = not (hardVal[0] in ['v', 'V'])
-            t = not (hardVal[0] in ['t', 'T'])
-        if not v and f and t: self.__calcV(k,d)
-        if not f and v and t: self.__calcF(k,d)
-        if not t and v and f: self.__calcTau(k,d)
+            f = hardVal[0] in ['f', 'F']
+            v = hardVal[0] in ['v', 'V']
+            t = hardVal[0] in ['t', 'T']
+        if v and not f and not t: self.__calcV(k,d)
+        if f and not v and not t: self.__calcF(k,d)
+        if t and not v and not f: self.__calcTau(k,d)
         
     ''' __fillVFt: get all values for V0, F0, tau0 (assume requirements are met) '''
     def __fillVFt(self, haveF0):
@@ -387,7 +387,8 @@ class Model_Parameters:
             # fill F0 in all compartments
             self.__makeFlowMeetConditions(d)
             # get tau0, V0 by tau0 = V0/F0
-            for k in range(self.VENULE, self.numCompartments):
+            for k in range(0, self.numCompartments):
+                if k==self.ARTERIOLE: continue
                 self.__getThirdValueVFt(k,d)
     
     ''' __completeVFt: check if V0,F0,tau0 meet requirements and calculate missing values '''
