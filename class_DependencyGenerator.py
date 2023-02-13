@@ -53,10 +53,8 @@ class DependencyGenerator:
     ''' __initMatrice: initialize all result matrice and the x-axis '''
     def __initMatrice(self):
         # initialize matrice 
-        self.BOLD_max = np.zeros([self.parent.params.numDepths, self.numIt])
-        self.VASO_max = np.zeros([self.parent.params.numDepths, self.numIt])
-        self.BOLD_timestamps = np.zeros([self.parent.params.numDepths, self.numIt])
-        self.VASO_timestamps = np.zeros([self.parent.params.numDepths, self.numIt])
+        for attr in ['BOLD_max', 'VASO_max', 'BOLD_timestamps', 'VASO_timestamps']:
+            if not hasattr(self, attr): setattr(self, attr, np.zeros([self.parent.params.numDepths, self.numIt]))  
         # get x-axis (all values over which will be iterated)
         self.x = np.linspace(self.minVal, self.maxVal, self.numIt)
 

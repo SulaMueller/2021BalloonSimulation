@@ -15,17 +15,13 @@ from class_DependencyGenerator import DependencyGenerator
 parameter_file = "/depthDependentBalloonSimulation_210618.txt"#"/empty.txt"#
 neural_parameter_file = "/NeuralParameters_210812.txt"
 input_function_file = parameter_file
-
-signal = SignalModel(parameter_file, neural_parameter_file, input_function_file)
-dependency = DependencyGenerator(signal)
-dependency.calculateDependency('B0', 1, 10, numIt=10)
-
-
 #changeValue(input_function_file, 'number of time points', new_val=2000)
 #changeMatrixCol(input_function_file, 'type of input', [0,100,300], k=0, numDepths=params.numDepths)
 #changeInputFunction(input_function_file, params.numDepths, new_type='n')
 
-'''
+
+signal = SignalModel(parameter_file, neural_parameter_file, input_function_file)
+
 neural_model = signal.neural_model
 balloon = signal.balloon
 params = signal.params
@@ -40,9 +36,9 @@ compartment = params.VENULE
 balloon.plots.plotOverAnother(balloon.flow[compartment,depth,:], balloon.volume[compartment,depth,:], 'flow', 'volume')
 balloon.plots.plotOverAnother(balloon.plots.time, balloon.flow[params.VENULE, :,:], 't', 'flow', title='venule')
 balloon.plots.plotOverAnother(balloon.plots.time, balloon.flow[params.VEIN, :,:], 't', 'flow', title='vein')
-'''
 
-
+#dependency = DependencyGenerator(signal)
+#dependency.calculateDependency('B0', 1, 10, numIt=10)
 
 plt.show()
 print("Done.")
