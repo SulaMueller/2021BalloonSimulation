@@ -91,5 +91,5 @@ parameter       | arteriole |  venule   |    vein   |
              r0 |  228      |   232     |   236     |
 
 B0  = 7 [T]
-TE  = 28 [ms]
+TE_ = 0.028 [s]
 dXi = 0.000000264

@@ -66,7 +66,7 @@ class readableVarClass:
                 nameClass.single : {
                     'B0' : ['B0', -1, False, True, 'float'],
                     'dXi': ['dXi', -1, False, True, 'float'], 
-                    'TE': ['TE', -1, False, True, 'float']
+                    'TE': ['TE_', -1, False, True, 'float']
                 },
                 nameClass.matrix : {
                     'epsilon' : ['epsilon', -1, False, True, 0],
@@ -245,11 +245,6 @@ class Model_Parameters:
         if wouldThrow and self.__isInitMatrix(varname, vartype, bold): self.__addNewException(readname)
         return res
 
-    ''' __E0check: E0 can be given as part of boldparams or independently -> make sure at least one is given. '''
-    def __E0check(self):
-        if self.__checkE0: return True  # if E0 was given as matrix
-        return hasattr(self.boldparams, 'E0')
-
     ''' __BOLDfail: define what to do if a bold-param is missing '''
     def __BOLDfail(self, varname, vartype):
         readname = self.getVarInfo(varname, vartype, nameClass.readname, bold=True)
@@ -261,8 +256,10 @@ class Model_Parameters:
         # for all bold-params
         for varname in self.__getAllValuenames(vartype, bold=True):
             if self.__isInitMatrix(varname, vartype, bold=True):
-                if varname == 'E0': 
-                    if self.__E0check(): continue
+                # E0 can be given as 1) matrix or 2) boldparam -> if 2), init conditions are tolerated
+                if varname == 'E0':
+                    if hasattr(self.boldparams, 'E0'): continue
+                # for every other parameter, init conditions mean read in failed
                 self.__BOLDfail(varname, vartype)
                     
     ''' __parse_parameterFile: read all required parameters from the parameter file '''
@@ -281,16 +278,18 @@ class Model_Parameters:
                 '\nResting conditions required. Define two columns of F0, V0 or tau0 (see comments for specific format). '
         # get BOLD-parameters
         self.boldparams = { 'gamma0': 2*np.pi*42.58*pow(10,6) }
+        # bold matrice
         boldparams_tmp, _, titles = readMatrixFromText(
             self.filetext, 'BOLD', self.numCompartments, numDepths=-1, nVar=0, needCaptions=True)
         if boldparams_tmp is None: warn(f'No BOLD parameters given. Won\'t calculate BOLD-contrast.')
         elif titles is None: warn(f'Names of BOLD-parameters not clear. Won\'t calculate BOLD-contrast.')
-        else:
+        else: 
             for i in range(0, len(titles)): self.boldparams[titles[i]] = boldparams_tmp[:,i]
-            for valuename in self.__getAllValuenames(nameClass.single, bold=True): 
-                self.__parse(valuename, nameClass.single, bold=True)
-            # check, if BOLD-params are complete (and warn if not, but don't throw)
-            for vartype in nameClass.vartypes[0:1]: self.__BOLDcheck(vartype)
+        # bold single vars
+        for valuename in self.__getAllValuenames(nameClass.single, bold=True): 
+            self.__parse(valuename, nameClass.single, bold=True)
+        # check, if BOLD-params are complete (and warn if not, but don't throw)
+        for vartype in nameClass.vartypes[0:1]: self.__BOLDcheck(vartype)
         # throw exception if anything is missing
         if len(self._exception) > 0: raise Exception(self._exception + '\n\n')
 
@@ -431,20 +430,22 @@ class Model_Parameters:
             self.__makeFlowMeetCondition_oneCompartment(k, k_withFlow, d)
 
 # -----------------------------  MAKE SURE Q CAN BE CALCULATED  -------------------------------
-    ''' __checkE0: make sure, E0 was given as matrix and not as part of boldparams '''
-    def __checkE0(self):
+    ''' __E0_is_KxD_matrix: make sure, E0 was given as matrix and not as part of boldparams '''
+    def __E0_is_KxD_matrix(self):
         if self.__isInitMatrix('E0'): return False
         if (self.E0>0.7).any() or (self.E0<0).any(): return False
+        # make sure, not any other matrix was accidentally copied to E0
         for attr in self.boldparams:
             if attr == 'E0': continue
             for d in range(0, self.numDepths):
                 if (self.E0[:,d]==self.boldparams[attr]).all(): return False
+        # if all checks check out, assume E0 was read-in properly
         return True
     
     ''' __checkQ: make sure, given input is sufficient to calculate ox-extraction (q, dq) '''
     def __checkQ(self):
         if not self.__isInitMatrix('n'): self.oxmode = self._OX_n
-        elif self.__checkE0(): self.oxmode = self._OX_E0
+        elif self.__E0_is_KxD_matrix(): self.oxmode = self._OX_E0
         else: 
             self.oxmode = self._OX_m
             self._exception = (f"\ndHb-content can not be calculated with given input. "
