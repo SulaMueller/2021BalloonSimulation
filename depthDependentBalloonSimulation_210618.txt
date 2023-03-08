@@ -33,7 +33,7 @@ depth level 0   |    3.5    |           |
             4   |    1.5    |           |
             5   |    1      |           |
 
-V0
+V0 [ml/100ml tissue]
 compartment     | arteriole |  venule   |    vein   |
 depth level 0   |           |     2     |      2    |
             1   |           |     2     |      2    |
