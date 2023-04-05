@@ -75,7 +75,7 @@ class Input_Timeline:
         self.cmro2 = np.zeros([self.params.numDepths, self.params.N])
         for i in range(0, self.params.N):
             line = lines[i]
-            self.cmro2[d,i] = float(line)
+            self.cmro2[i] = float(line)
             # >> implement here, what needs to be done for each line <<
             raise Exception("\nread_cmro not implemented. Implement according to filestructure if needed.\n")
             # >> then delete Exception <<
