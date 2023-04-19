@@ -2,7 +2,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from class_main_signalModel import SignalModel
+from class_SignalModel import Signal_Model
 from class_ModelParameters import Model_Parameters
 from class_NeuralParameters import Neural_Parameters
 from class_inputTimeline import Input_Timeline
@@ -12,7 +12,7 @@ from writeFile import changeInputFunction, changeMatrixCol, changeMatrixVal, cha
 from class_DependencyGenerator import DependencyGenerator
 
 # parameter files
-parameter_file = "/depthDependentBalloonSimulation_210618.txt"#"/empty.txt"#
+parameter_file = "/Havliceks_Implementation2019.txt"#"/empty.txt"#
 neural_parameter_file = "/NeuralParameters_210812.txt"
 input_function_file = parameter_file
 #changeValue(input_function_file, 'number of time points', new_val=2000)
@@ -20,7 +20,7 @@ input_function_file = parameter_file
 #changeInputFunction(input_function_file, params.numDepths, new_type='n')
 
 
-signal = SignalModel(parameter_file, neural_parameter_file, input_function_file)
+signal = Signal_Model(parameter_file, neural_parameter_file, input_function_file)
 
 neural_model = signal.neural_model
 balloon = signal.balloon

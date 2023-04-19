@@ -326,7 +326,7 @@ class Model_Parameters:
         # init values
         under = 0  # underdetermined layers
         over = 0  # overdetermined layers
-        haveF0 = np.zeros([self.numDepths, 2])  # row1: haveF0; row2: compartment with 2 values (if not haveF0)
+        haveF0 = np.zeros([self.numDepths, 2])  # col1: haveF0; col2: compartment with 2 values (if not haveF0)
         valsPerLayer = self.numCompartments  # 3
         # go through all layers
         for d in range(0, self.numDepths):
@@ -344,8 +344,8 @@ class Model_Parameters:
             # check that at least one value for venule, vein compartments each
             for k in range(self.VENULE, self.numCompartments):
                 change = \
-                      int(self.__isInitMatrixValue('V0', k, d)) \
-                    + int(self.__isInitMatrixValue('tau0', k, d)) 
+                      int(not self.__isInitMatrixValue('V0', k, d)) \
+                    + int(not self.__isInitMatrixValue('tau0', k, d)) 
                 under += int(change==0)
                 # save compartment where F0 can be calculated
                 if not haveF0[d,0] and change == 2:
