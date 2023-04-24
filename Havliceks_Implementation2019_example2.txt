@@ -1,0 +1,95 @@
+# values taken from Havlicek2019
+
+number of time points       = 6000
+time integration step (dt)  = 0.01 [s]
+number of depth levels      = 6
+
+-------------------------------------------------------------------------
+INPUT TIMELINE (can be arterial flow or neural activation)
+
+type of input ('flow'/'neural') = n
+                |  time points of change  |  input after this point |
+depth level 0   |  0; 300; 2300           |  0.0; 1.0; 0.0          |
+depth level 1   |  0; 300; 2300           |  0.0; 1.0; 0.0          |
+depth level 2   |  0; 300; 2300           |  0.0; 1.0; 0.0          |
+depth level 3   |  0; 300; 2300           |  0.0; 1.0; 0.0          |
+depth level 4   |  0; 300; 2300           |  0.0; 1.0; 0.0          |
+depth level 5   |  0; 300; 2300           |  0.0; 1.0; 0.0          |
+
+-------------------------------------------------------------------------
+FLOW + VOLUME RESTING STATE
+requirements (each individual layer):
+    * exactly as many values as compartments
+    * max 1 value can be flow (because of flow-coupling)
+    * min 1 value for venule,vein each
+    * only flow can be arteriole (v,tau can only be venule,vein)
+
+F0
+compartment     | arteriole |  venule   |
+depth level 0   |           |           |
+            1   |           |           |
+            2   |           |           |
+            3   |           |           |
+            4   |           |           |
+            5   |           |           |
+
+V0 [ml/100ml tissue]
+compartment     | arteriole |  venule   |    vein    |
+depth level 0   |           |   0.2083  |   0.3125   |
+            1   |           |   0.2083  |   0.2708   |
+            2   |           |   0.2083  |   0.2292   |
+            3   |           |   0.2083  |   0.1875   |
+            4   |           |   0.2083  |   0.1458   |
+            5   |           |   0.2083  |   0.1042   |
+
+tau0 [s]
+compartment     | arteriole |  venule   |    vein   |
+depth level 0   |           |     1     |           |
+            1   |           |     1     |           |
+            2   |           |     1     |           |
+            3   |           |     1     |           |
+            4   |           |     1     |           |
+            5   |           |     1     |           |
+
+-------------------------------------------------------------------------
+FLOW-VOLUME / FLOW-dHb COUPLING
+
+alpha (flow/volume-coupling)
+compartment     | arteriole |  venule   |    vein   |
+depth level 0   |           |   0.35    |     0.2   |
+            1   |           |   0.35    |     0.2   |
+            2   |           |   0.35    |     0.2   |
+            3   |           |   0.35    |     0.2   |
+            4   |           |   0.35    |     0.2   |
+            5   |           |   0.35    |     0.2   |
+
+visco-elastic time constants (in-; deflation)
+compartment     | arteriole |  venule   |    vein   |
+depth level 0   |           |   10; 20  |   20; 50  |
+            1   |           |   10; 20  |   20; 50  |
+            2   |           |   10; 20  |   20; 50  |
+            3   |           |   10; 20  |   20; 50  |
+            4   |           |   10; 20  |   20; 50  |
+            5   |           |   10; 20  |   20; 50  |
+
+n-ratio
+compartment     | arteriole |  venule   |    vein   |
+depth level 0   |           |   4       |   4       |
+            1   |           |   4       |   4       |
+            2   |           |   4       |   4       |
+            3   |           |   4       |   4       |
+            4   |           |   4       |   4       |
+            5   |           |   4       |   4       |
+
+-------------------------------------------------------------------------
+BOLD PARAMETERS
+
+parameter       | arteriole |  venule   |    vein   |
+             E0 |  0.35     |   0.35    |   0.35    |
+        epsilon |           |   0.2706  |   0.2334  |
+            Hct |           |   0.35    |   0.38    |
+             r0 |           |   228     |   232     |
+
+B0  = 7 [T]
+TE_ = 0.028 [s]
+dXi = 0.000000264

@@ -12,6 +12,8 @@ def saveMatToTxt(mat, filename):
 def compareMatWithMatfile(mat, matfilename, type = 'float', description = None):
     if description is None: description = matfilename
     mat2 = loadMatFromTxt(matfilename, type)
+    if 'bold' in description:
+        mat2 = mat2/100  # Havlicek gives result in %
     dif = mat - mat2
     denom1 = np.max(mat) - np.min(mat)
     denom2 = np.max(mat2) - np.min(mat2)
@@ -27,7 +29,7 @@ def compareMatWithMatfile(mat, matfilename, type = 'float', description = None):
 def compareByPlots(mat1, mat2, description):
     cor_fact = (np.max(mat1)-np.min(mat1))/(np.max(mat2)-np.min(mat2))
     mat2_cor = mat2 * cor_fact
-    dif = mat1 - mat2_cor
+    dif = mat1 - mat2
     # get parameters
     numDepths = np.min(np.shape(mat1))
     N = np.max(np.shape(mat1))
@@ -38,7 +40,7 @@ def compareByPlots(mat1, mat2, description):
     for D in range(numDepths):
         ax = axs[D]
         ax.plot(time, mat1[D,:])
-        ax.plot(time, mat2_cor[D,:])
+        ax.plot(time, mat2[D,:])
         ax.grid(True)
     # plot difference
     _, axs = plt.subplots(numDepths)

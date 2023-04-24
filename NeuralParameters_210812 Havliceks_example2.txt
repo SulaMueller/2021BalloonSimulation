@@ -1,0 +1,15 @@
+# values taken from Havlicek2020
+
+self-inhibitory connection (sigma)      = -3
+inhibitory-excitatory connection (mu)   = 0.5
+inhibitory gain (lambda)                = 0.2
+
+modulatory parameter of sigma           = 0
+modulatory parameter of mu              = 0
+modulatory parameter of lambda          = 0
+
+input weighting (C)                     = 0.7
+
+c1      = 0.6
+c2      = 1.5
+c3      = 0.6 
