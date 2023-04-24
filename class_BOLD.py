@@ -15,26 +15,26 @@ class BOLD:
         self.params = parent.params
         self.__get_scalingConstants()
         self.__get_BOLD()
-        clearAttrs(self, ['consts'])
     
     ''' __get_scalingConstants: '''
     def __get_scalingConstants(self):
         E0_is_boldparam = 'E0' in self.params.boldparams
         # ci
-        self.consts = {'c': np.empty([3, self.params.numCompartments]),
-                       'H0': np.empty([self.params.numDepths]),
+        self.consts = {'c': np.zeros([3, self.params.numCompartments]),
+                       'H0': np.zeros([self.params.numDepths]),
                        'sV0': np.zeros([self.params.numDepths])}
         for k in range(0, self.params.numCompartments):
             if E0_is_boldparam: e0 = self.params.boldparams['E0'][k]
             else: e0 = self.params.E0[k,:]
+            # k1v = 4.3.*suscep*Hct_v*gyro*B0*E0v.*TE;
             self.consts['c'][0,k] = 4.3 * \
                 self.params.boldparams['dXi'] * \
                 self.params.boldparams['Hct'][k] * \
                 self.params.boldparams['gamma0'] * \
                 self.params.boldparams['B0'] * \
                 e0 * \
-                self.params.boldparams['TE'] / \
-                (2*np.pi)
+                self.params.boldparams['TE']
+            # k2v = ep_v.*r0v.*E0v.*TE;
             self.consts['c'][1,k] = \
                 self.params.boldparams['epsilon'][k] * \
                 self.params.boldparams['r0'][k] * \

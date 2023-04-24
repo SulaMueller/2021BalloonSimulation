@@ -41,7 +41,7 @@ neural_parameter_file = "/NeuralParameters_210812.txt"
 input_function_file = parameter_file
 
 # test
-#signal = SignalModel(parameter_file, neural_parameter_file, input_function_file)
+#signal = Signal_Model(parameter_file, neural_parameter_file, input_function_file)
 #signal.params.changeVar('F0', 7, [1,3], 's')
 #signal.params.changeVar('tau0', 7, [1,3], 's')
 #signal.params.changeVar('N', 7)
