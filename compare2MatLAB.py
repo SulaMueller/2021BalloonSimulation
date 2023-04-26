@@ -1,3 +1,12 @@
+"""
+@name:      compare2MatLAB
+@author:    Sula Spiegel
+@change:    24/04/2023
+
+@summary:   set of functions to compare two sets of data:
+                * model implemented here
+                * data given as CSV-file
+"""
 
 import numpy as np
 import matplotlib.pyplot as plt

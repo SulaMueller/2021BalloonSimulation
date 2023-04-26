@@ -1,7 +1,7 @@
 """
 @name:      Balloon
 @author:    Sula Spiegel
-@change:    06/08/2021
+@change:    06/04/2023
 
 @summary:   Class to calculate Balloon Model 
             (flow, volume, oxygenation fraction as function of time and model parameters)
@@ -9,28 +9,23 @@
             Matrix dimensions: [K, D, T]
 """
 
-''' TODO: q, BOLD, log-normal
-'''
-
 import numpy as np
 import math
 from warnUsr import warn
 from class_ModelParameters import Model_Parameters, clearAttrs
 from class_inputTimeline import Input_Timeline
-from class_BOLD import BOLD
-from class_BalloonPlots import Balloon_Plots
 
 class Balloon:
 # ---------------------------------  INIT  ------------------------------------------------
-    def __init__(self, params: Model_Parameters, input_TimeLine: Input_Timeline):
+    def __init__(self, \
+                 params: Model_Parameters, \
+                 input_TimeLine: Input_Timeline ):
         self.params = params
         self.inputTL = input_TimeLine
 
         self.__check_input()
         self.__get_priors()
         self.__get_balloon()
-        self.bold = BOLD(self)
-        self.plots = Balloon_Plots(self)
         clearAttrs(self, ['dq', 'dv', 'flowdir', 'flowscaling'])
 
 # ---------------------------------  PREPARATION  -----------------------------------------
@@ -248,65 +243,5 @@ class Balloon:
                     self.__get_oneLayer(k,d,t)
             self.__update_timePoints(t)
 
-# ------------------------------------- DEPRECEATED  -------------------------------------
-    '''__get_extractionFraction: get the extraction fraction for entire time flow 
-    # todo: is this relation valid in the new model?
-    def __get_extractionFraction(self, params: Model_Parameters):
-        self.E = np.empty([params.numDepths, params.N])
-        for d in range(0, params.numDepths):
-            for t in range(0, params.N):
-                self.E[d,t] = 1 - pow((1 - params.E0[0]), (1/self.flow[0,d,t]))
+    
 
-    __get_flow_from_volume: get venous outflow from venous volume
-    def __get_flow_from_volume(self, params: Model_Parameters, k, d, t, dv):
-        if dv > 0: tau_v = params.vet[k,d,0]  # inflation
-        else: tau_v = params.vet[k,d,1]  # deflation
-        self.flow[k,d,t] = self.volume[k,d,t]^(1/params.alpha[k,d]) + tau_v * dv
-
-    __get_balloon: use all balloon equations (for all time points)
-    def __get_balloon(self, params: Model_Parameters):
-        # init values at start
-        for d in range(params.numDepths-1, -1):  # start at lowest level (highest d)
-            # init flow
-            self.flow[1,d,0] = self.flow[0,d,0]  # assume steady-state at init -> venule = arteriole
-            self.flow[2,d,0] = self.flow[1,d,0] * params.F0[1,d] / params.F0[2,d]  # veins collect venules
-            if d < params.numDepths-1:
-                self.flow[2,d,0] += self.flow[2,d+1,0] * params.F0[2,d+1] / params.F0[2,d]  # add lower vein if not lowest depth
-            # init volume
-            for k in range(0, params.numCompartments):
-                self.volume[k,d,0] = self.flow[k,d,0]^params.alpha[k,d]
-            # init q
-            self.q[1,d,0] = self.volume[1,d,0] * self.E[d,0] / params.E0[1]
-            self.q[2,d,0] = self.flow[1,d,0] * params.F0[1,d] / params.F0[2,d] * self.E[d,0] / params.E0[2]
-            if d < params.numDepths-1:
-                self.q[2,d,0] += self.flow[2,d+1,0] * params.F0[1,d] / params.F0[2,d] * self.q[2,d+1,0]/self.volume[2,d+1,0]
-            self.q[2,d,0] *= self.volume[2,d,0] / self.flow[2,d,0]
-        
-        # go through time course
-        dv = np.empty([params.numCompartments])
-        dq = np.empty([params.numCompartments])
-        for t in range(0, params.N):
-            # change parameters
-            for d in range(params.numDepths-1, -1, -1):
-                dv[1] = self.flow[0,d,t] - self.flow[1,d,t]   # venule
-                dq[1] = self.flow[0,d,t] * self.E[d,t] / params.E0[1] - self.flow[1,d,t] * self.q[1,d,t] / self.volume[1,d,t]
-
-                dv[2] = self.flow[1,d,t] * params.F0[1,d] / params.F0[2,d] - self.flow[2,d,t]  # vein
-                dq[2] = self.flow[1,d,t] * params.F0[1,d] / params.F0[2,d] * self.q[1,d,t]/self.volume[1,d,t] \
-                        - self.flow[2,d,t] * self.q[2,d,t]/self.volume[2,d,t]
-                
-                if d < params.numDepths-1:
-                    dv[2] += self.flow[2,d+1,t] * params.F0[2,d+1] / params.F0[2,d] 
-                    dq[2] += self.flow[2,d+1,t] * params.F0[2,d+1] / params.F0[2,d] * self.q[2,d+1,t]/self.volume[2,d+1,t]
-
-                for k in range(1, params.numCompartments):
-                    dv[k] /= self.tau0[k,d]
-                    dq[k] /= self.tau0[k,d]
-                
-            # new parameters
-            for k in range(1, params.numCompartments):
-                for d in range(params.numDepths-1, -1):
-                    self.volume[k,d,t] += dv[k]
-                    self.q[k,d,t] += dq[k]
-                    self.__get_flow_from_volume(params, k, d, t, dv[k])
-                    '''

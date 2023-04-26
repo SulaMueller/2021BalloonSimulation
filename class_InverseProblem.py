@@ -16,15 +16,20 @@ from class_inputTimeline import Input_Timeline
 from class_NeuralModel import Neural_Model
 from class_Balloon import Balloon
 
+import pylops
+import scipy as sp
+from pylops.utils import dottest
+from pylops.optimization.solver import lsqr as lsqr_pylops
+
 class InverseProblem:
     def __init__(self, signal:Signal_Model, params:Model_Parameters, signaltype='BOLD'):
         self.signal = signal
         self.params = params
         # get flow from signal
-        if signaltype[0] in ['B', 'b']: self.flow = self.__inverseBOLD()
-        elif signaltype[0] in ['V', 'v']: self.flow = self.__inverseVASO()
+        if signaltype[0] in ['B', 'b']: self.__inverseBOLD()
+        elif signaltype[0] in ['V', 'v']: self.__inverseVASO()
         # get neural activation function from flow
-        self.neural = self.__inverseFlow()
+        self.__inverseFlow()
     
     ''' =============================  SET-FUNCTIONS  ======================== '''
     

@@ -1,7 +1,7 @@
 """
 @name:      Neural_Parameters
 @author:    Sula Spiegel
-@change:    12/08/2021
+@change:    12/04/2023
 
 @summary:   Class to store neural model parameters (read them from file first)
 """

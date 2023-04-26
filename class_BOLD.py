@@ -1,18 +1,19 @@
 """
 @name:      BOLD
 @author:    Sula Spiegel
-@change:    10/08/2021
+@change:    10/04/2023
 
 @summary:   get BOLD-signal from BALLOON (also gives VASO-signal)
 """
 
 import numpy as np
 from class_ModelParameters import clearAttrs
+from class_Balloon import Balloon
 
 class BOLD:
-    def __init__(self, parent):
-        self.parent = parent  # parent: Balloon
-        self.params = parent.params
+    def __init__(self, balloon: Balloon):
+        self.balloon = balloon
+        self.params = balloon.params
         self.__get_scalingConstants()
         self.__get_BOLD()
     
@@ -63,10 +64,10 @@ class BOLD:
                 # todo: weightings of different compartments (None, according to Havlicek)
                 for k in range(0, self.params.numCompartments):
                     v = self.params.V0[k,d] * self.params.numDepths / 100  # transformation from total volume to blood volume fraction
-                    B1 += self.consts['c'][0,k] * v * (1-self.parent.q[k,d,t])
-                    B2 += self.consts['c'][1,k] * v * (1-self.parent.q[k,d,t]/self.parent.volume[k,d,t])
-                    B3 += self.consts['c'][2,k] * v * (1-self.parent.volume[k,d,t])
-                    VA += (self.parent.volume[k,d,t] - self.params.V0[k,d]) / (self.params.V0[k,d] - 1)  # [ml blood/100ml tissue]
+                    B1 += self.consts['c'][0,k] * v * (1-self.balloon.q[k,d,t])
+                    B2 += self.consts['c'][1,k] * v * (1-self.balloon.q[k,d,t]/self.balloon.volume[k,d,t])
+                    B3 += self.consts['c'][2,k] * v * (1-self.balloon.volume[k,d,t])
+                    VA += (self.balloon.volume[k,d,t] - self.params.V0[k,d]) / (self.params.V0[k,d] - 1)  # [ml blood/100ml tissue]
                 B1 *= (1 - self.consts['sV0'][d])
                 self.BOLDsignal[d,t] = self.consts['H0'][d] * (B1 + B2 + B3)
                 self.VASOsignal[d,t] = VA

@@ -2,7 +2,7 @@
 """
 @name:      Model_Parameters
 @author:    Sula Spiegel
-@change:    05/08/2021
+@change:    05/04/2023
 
 @summary:   Class to store general model parameters (read them from file first)
 """

@@ -1,7 +1,7 @@
 """
 @name:      DependencyGenerator
 @author:    Sula Spiegel
-@change:    20/01/2023
+@change:    21/01/2023
 
 @summary:   get dependency of overall signal from single variables
 """

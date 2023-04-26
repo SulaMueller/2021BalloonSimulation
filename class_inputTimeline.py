@@ -2,7 +2,7 @@
 """
 @name:      Input_Timeline
 @author:    Sula Spiegel
-@change:    25/08/2021
+@change:    25/04/2023
 
 @summary:   Class to store input function (can be neural activation pattern or arterial flow)
 @contains:
