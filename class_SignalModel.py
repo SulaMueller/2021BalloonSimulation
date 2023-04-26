@@ -31,15 +31,15 @@ class Signal_Model:
     def __readFiles(self, parameter_file, neural_parameter_file, input_function_file):
         self.neural_params = Neural_Parameters(neural_parameter_file)
         self.params = Model_Parameters(parameter_file)
-        self.input_TimeLine = Input_Timeline(self.params, input_function_file)
+        self.input_TL = Input_Timeline(self.params, input_function_file)
         # timeline needs params only for N,numCompartments -> assume those won't be changed
     
     ''' createModelInstances: create instances of model calculation objects 
             (can also be used to re-initialize models) '''
     def createModelInstances(self):
-        self.neural = Neural_Model(self.neural_params, self.params, self.input_TimeLine)
-        # neural model sets flow in self.input_TimeLine -> input for balloon
-        self.balloon = Balloon(self.params, self.input_TimeLine)
+        self.neural = Neural_Model(self.neural_params, self.params, self.input_TL)
+        # neural model sets flow in self.input_TL -> input for balloon
+        self.balloon = Balloon(self.params, self.input_TL)
         self.bold = BOLD(self.balloon)
         self.plots = Plots(neural=self.neural, balloon=self.balloon, bold=self.bold)
 

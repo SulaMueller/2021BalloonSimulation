@@ -3,7 +3,7 @@
 @author:    Sula Spiegel
 @change:    09/02/2023
 
-@summary:   solve inverse problem (get neural activation function, if BOLD/VASO signal is known)
+@summary:   solve inverse problem (get stimulus function, if BOLD/VASO signal is known)
 """
 
 import matplotlib.pyplot as plt
@@ -19,7 +19,7 @@ from class_Balloon import Balloon
 import pylops
 import scipy as sp
 from pylops.utils import dottest
-from pylops.optimization.solver import lsqr as lsqr_pylops
+from pylops.optimization.basic import lsqr
 
 class InverseProblem:
     def __init__(self, signal:Signal_Model, params:Model_Parameters, signaltype='BOLD'):

@@ -4,10 +4,10 @@
 @author:    Sula Spiegel
 @change:    25/04/2023
 
-@summary:   Class to store input function (can be neural activation pattern or arterial flow)
+@summary:   Class to store input function (can be stimulus or arterial flow)
 @contains:
-    * inputtype: stores, which type of time line ("flow" or "neur")
-    * f_arteriole OR neural: [numDepths, numTimepoints] input function
+    * inputtype: stores, which type of time line ("flow" or "stimulus")
+    * f_arteriole OR stimulus: [numDepths, numTimepoints] input function
 """
 
 import numpy as np
@@ -19,28 +19,28 @@ class Input_Timeline:
     def __init__(self, params: Model_Parameters, input_file: str, cmro_file=None):
         self.params = params
 
-        self.INPUT_TYPES = ["flow", "neur"]
+        self.INPUT_TYPES = ["flow", "stimulus"]
         self.INDEX_FLOW = 0
-        self.INDEX_NEURO = 1
+        self.INDEX_STIMULUS = 1
         self.available_input = np.zeros(len(self.INPUT_TYPES)+1)
 
         self.filetext = getFileText(input_file)  # get file as string
-        self.read_input_fromFile()  # read flow_arteriole or neural activation from 
+        self.read_input_fromFile()  # read flow_arteriole or stimulus from file
         self.read_cmro(cmro_file)  # read cmro-values, if given
         clearAttrs(self, ['filetext'])
 
 # ---------------------------------  SET INPUT TIMELINE  --------------------------------------
-    ''' set_input: assign a given array to matching input structure (flow or neuro) '''
+    ''' set_input: assign a given array to matching input structure (flow or stimulus) '''
     def __set_fArteriole(self, f_new):
         self.f_arteriole = f_new
-    def __set_neural(self, n_new):
-        self.neural_input = n_new
+    def __set_stimulus(self, n_new):
+        self.stimulus = n_new
     def set_input(self, v_new, inputtype: int):
         if inputtype == self.INDEX_FLOW: self.__set_fArteriole(v_new)
-        if inputtype == self.INDEX_NEURO: self.__set_neural(v_new)
+        if inputtype == self.INDEX_STIMULUS: self.__set_stimulus(v_new)
         self.available_input[inputtype] = True 
 
-    ''' read_input_fromFile: read f_arteriole or neuro from parameter-file '''
+    ''' read_input_fromFile: read f_arteriole or stimulus from parameter-file '''
     def read_input_fromFile(self):
         # prepare read-in
         numAxis = 2  # time, value

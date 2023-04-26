@@ -151,7 +151,8 @@ class Plots:
         if plotAsVesselCompartment:
             if not np.all(y == y[0]):  # only plot, if not constant
                 colors = ['red', 'cornflowerblue', 'navy']  # arteriole, venule, vein
-                axs.plot(x, y, color=colors[i])
+                legends = ['arteriole', 'venule', 'vein']
+                axs.plot(x, y, color=colors[i], label=legends[i])
         else:
             axs.plot(x, y)
 
@@ -201,6 +202,7 @@ class Plots:
                 ax.grid(True)
                 ax.set_xlabel(xname)
                 ax.set_ylabel(ytit)
+            if L==numLines-1 and numCompartmentsY==self.params.numCompartments: ax.legend()
         clearAttrs(self, ['dims'])
     
     ''' plotOverTime: plot data over time '''

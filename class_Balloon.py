@@ -37,7 +37,7 @@ class Balloon:
                              Calculate neural model first or give arterial flow directly.')
         # check, that either n,E0 or CMRO2 are given (for q calculation)
         if self.params.oxmode == self.params._OX_m:
-            if not self.inputTL.available_input[len(self.inputTL.INPUT_TYPES)]:
+            if not self.inputTL.available_input[len(self.inputTL.INPUT_TYPES)-1]:
                 raise Exception(self.params._exception)
             else: self.m = self.inputTL.cmro2
 

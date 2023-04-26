@@ -5,9 +5,9 @@ time integration step (dt)  = 0.01 [s]
 number of depth levels      = 6
 
 -------------------------------------------------------------------------
-INPUT TIMELINE (can be arterial flow or neural activation)
+INPUT TIMELINE (can be arterial flow or original stimulus)
 
-type of input ('flow'/'neural') = n
+type of input ('flow'/'stimulus') = s
                 |  time points of change  |  input after this point |
 depth level 0   |  0; 300; 2300           |  0.0; 1.0; 0.0          |
 depth level 1   |  0; 300; 2300           |  0.0; 1.0; 0.0          |

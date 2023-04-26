@@ -31,10 +31,10 @@ class Neural_Model:
         if not self.__check_input(): return
         self.__get_neuralModel()
     
-    ''' __check_input: check, whether given input structure contains a neural activation function '''
+    ''' __check_input: check, whether given input structure contains a stimulus function '''
     def __check_input(self):
-        if not self.inputTL.available_input[self.inputTL.INDEX_NEURO]:
-            warn('No neural input function given. Neuronal model not calculated!')
+        if not self.inputTL.available_input[self.inputTL.INDEX_STIMULUS]:
+            warn('No stimulus given. Neuronal model not calculated!')
             return False
         return True
 
@@ -52,7 +52,7 @@ class Neural_Model:
             + self.params.dt * ( \
                   self.nparams.sigma * self.n_excitatory[d,t-1] \
                 - self.nparams.mu * self.n_inhibitory[d,t-1] \
-                + self.nparams.C * self.inputTL.neural_input[d,t] \
+                + self.nparams.C * self.inputTL.stimulus[d,t] \
               )
     
     def __getInhibitory(self, d,t):
