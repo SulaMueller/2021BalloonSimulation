@@ -6,6 +6,8 @@
 @summary:   solve inverse problem (get stimulus function, if BOLD/VASO signal is known)
 """
 
+''' work in progress '''
+
 import matplotlib.pyplot as plt
 import numpy as np
 
