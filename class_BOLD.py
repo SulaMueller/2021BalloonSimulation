@@ -53,9 +53,9 @@ class BOLD:
     
     ''' __get_BOLD: '''
     def __get_BOLD(self):
-        self.BOLDsignal = np.empty([self.params.numDepths, self.params.N])
-        self.VASOsignal = np.empty([self.params.numDepths, self.params.N])
-        for t in range(0, self.params.N):
+        self.BOLDsignal = np.empty([self.params.numDepths, self.params.T])
+        self.VASOsignal = np.empty([self.params.numDepths, self.params.T])
+        for t in range(0, self.params.T):
             for d in range(0, self.params.numDepths):
                 B1 = 0  # extra-vascular
                 B2 = 0  # intra-vascular

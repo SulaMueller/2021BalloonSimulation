@@ -41,8 +41,8 @@ def compareByPlots(mat1, mat2, description):
     dif = mat1 - mat2
     # get parameters
     numDepths = np.min(np.shape(mat1))
-    N = np.max(np.shape(mat1))
-    time = np.linspace(0, N, N)
+    T = np.max(np.shape(mat1))
+    time = np.linspace(0, T, T)
     # plot functions
     _, axs = plt.subplots(numDepths)
     axs[0].set_title(f"both {description}")

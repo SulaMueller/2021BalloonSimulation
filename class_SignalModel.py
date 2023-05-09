@@ -32,7 +32,7 @@ class Signal_Model:
         self.neural_params = Neural_Parameters(neural_parameter_file)
         self.params = Model_Parameters(parameter_file)
         self.input_TL = Input_Timeline(self.params, input_function_file)
-        # timeline needs params only for N,numCompartments -> assume those won't be changed
+        # timeline needs params only for T,numCompartments -> assume those won't be changed
     
     ''' createModelInstances: create instances of model calculation objects 
             (can also be used to re-initialize models) '''

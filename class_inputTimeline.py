@@ -50,13 +50,13 @@ class Input_Timeline:
         numSections = sections.shape[2]
 
         # read individual sections
-        entire_timeline = np.empty([self.params.numDepths, self.params.N])
+        entire_timeline = np.empty([self.params.numDepths, self.params.T])
         for d in range(0, self.params.numDepths):
             for s in range(0, numSections):
                 t0 = int(sections[timeaxis, d, s])  # starting time point
                 if s < numSections - 1: t1 = int(sections[timeaxis, d, s+1])
-                else: t1 = self.params.N  # ending time point
-                if t0 < self.params.N:
+                else: t1 = self.params.T  # ending time point
+                if t0 < self.params.T:
                     entire_timeline[d, t0:t1] = sections[valueaxis, d, s]
         
         # write timeline to matching structure
@@ -72,8 +72,8 @@ class Input_Timeline:
         if cmro_file is None: return
         filetext = getFileText(cmro_file)
         lines = filetext.splitlines()  # get array of lines
-        self.cmro2 = np.zeros([self.params.numDepths, self.params.N])
-        for i in range(0, self.params.N):
+        self.cmro2 = np.zeros([self.params.numDepths, self.params.T])
+        for i in range(0, self.params.T):
             line = lines[i]
             self.cmro2[i] = float(line)
             # >> implement here, what needs to be done for each line <<

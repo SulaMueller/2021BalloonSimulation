@@ -49,7 +49,7 @@ class readableVarClass:
     def __init__(self):
         self.readableVars = {  # attrname: [name for read-in, defaultVal, throw exception if missing, changeable, type/nVar]
             nameClass.single : {
-                'N' : ["number of time points", -1, True, False, 'int'],
+                'T' : ["number of time points", -1, True, False, 'int'],
                 'dt' : ["time integration step (dt)", 0.01, False, True, 'float'],
                 'numDepths' : ["number of depth levels", -1, False, False, 'int'],
             },

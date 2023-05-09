@@ -90,6 +90,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from class_SignalModel import Signal_Model
+from Operators import Ops_hemodynamicBOLDmodel
 from writeFile import changeInputFunction, changeMatrixCol, changeMatrixVal, changeValue
 from compare2MatLAB import compareMatWithMatfile
 
@@ -112,6 +113,9 @@ for attr in appendix:
     balloon = signal.balloon
     bold = signal.bold
     plots = signal.plots
+
+    OP = Ops_hemodynamicBOLDmodel(neural, params)
+    OP.calculateModel(signal.input_TL)
     
     # plot
     depth = 2

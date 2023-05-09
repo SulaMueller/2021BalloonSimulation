@@ -56,7 +56,7 @@ class Balloon:
     def __init_matrices(self):
         K = self.params.numCompartments
         D = self.params.numDepths
-        T = self.params.N
+        T = self.params.T
         for attr in ['volume', 'flow', 'q', 'm']:  # init all timelines
             if not hasattr(self, attr): setattr(self, attr, np.ones([K, D, T]) )  
             # use ones, since init values should be 1
@@ -237,7 +237,7 @@ class Balloon:
         self.__init_values()  # make sure steady-state conditions are met
         
         # go through time course
-        for t in range(0, self.params.N - 1):
+        for t in range(0, self.params.T - 1):
             for k in range(self.params.VENULE, self.params.numCompartments):
                 for d in range(self.params.numDepths-1, -1, -1):
                     self.__get_oneLayer(k,d,t)

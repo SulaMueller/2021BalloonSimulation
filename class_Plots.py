@@ -27,11 +27,11 @@ def getDims(data, selfdims=None):
         numCompartments = 1
         numDepths = 1
     elif data.ndim == 3: 
-        numCompartments = data.shape[0]  # assume [numC, numD, N]
+        numCompartments = data.shape[0]  # assume [numC, numD, T]
         numDepths = data.shape[1]
     elif data.ndim == 2:   # 2D data -> can be plotted in a single subplot
         if len(orig_datashape) == 3:  # have a look at original data
-            numCompartments = orig_datashape[0]  # assume [numC, numD, N]
+            numCompartments = orig_datashape[0]  # assume [numC, numD, T]
             numDepths = orig_datashape[1]
         elif selfdims is not None:  # use prior info given by Plots.dims
             if selfdims[0]: numCompartments = data.shape[0]
@@ -39,11 +39,11 @@ def getDims(data, selfdims=None):
             if selfdims[1] and selfdims[0]: numDepths = data.shape[1]
             elif selfdims[1] and not selfdims[0]: numDepths = data.shape[0]
             else: numDepths = 1
-        else:   # assume [numC/D, N]
-            if data.shape[0] == 3:  # assume [numC, N], plot in one subplot
+        else:   # assume [numC/D, T]
+            if data.shape[0] == 3:  # assume [numC, T], plot in one subplot
                 numCompartments = data.shape[0]
                 numDepths = 1
-            else:  # assume [numD, N], plot each in individual subplot
+            else:  # assume [numD, T], plot each in individual subplot
                 numCompartments = 1
                 numDepths = data.shape[0]
     else:
@@ -80,7 +80,7 @@ class Plots:
         for i in [neural, balloon, bold]:
             if i is not None:
                 self.params = i.params
-                self.time = np.linspace(0, self.params.N, self.params.N)
+                self.time = np.linspace(0, self.params.T, self.params.T)
                 break
     
     # =========================== FETCH DATA ==============================
@@ -90,7 +90,7 @@ class Plots:
     def __getData(self, varname, depth, compartment, title):
         # define cases
         attrs = ['n', 'f', 'v', 'q', 'bold', 'vaso']  # axis titles
-        dic = {  # [[possible varnames], title, obj, obj-attribute, dims: [numC, numD, N]]
+        dic = {  # [[possible varnames], title, obj, obj-attribute, dims: [numC, numD, T]]
             attrs[0]: [['n','N'], 'Neuronal Activation Function (excitation)', self.neural, 'n_excitatory', [False,True,True]],
             attrs[1]: [['f', 'F'], 'Flow Response', self.balloon, 'flow', [True,True,True]],
             attrs[2]: [['vo', 'Vo', 'VO'], 'Volume', self.balloon, 'volume', [True,True,True]],  
@@ -118,13 +118,13 @@ class Plots:
         # cut data to specific depth and compartment
         numCompartments, numDepths = getDims(data)
         if compartment > -1 and numCompartments > 1: 
-            data = np.resize(data, (numCompartments, numDepths, self.params.N))
+            data = np.resize(data, (numCompartments, numDepths, self.params.T))
             data = data[compartment, :, :]
             numCompartments = 1
             self.dims[0] = False
             title = f"{title}, {self.params.COMPARTMENTS[compartment]}"
         if depth > -1 and numDepths > 1:
-            data = np.resize(data, (numCompartments, numDepths, self.params.N))
+            data = np.resize(data, (numCompartments, numDepths, self.params.T))
             data = data[:, depth, :]
             self.dims[1] = False
             title = f"{title}, depth={depth}"
@@ -133,8 +133,8 @@ class Plots:
     ''' __retrieveDims: try to find out, which dim of data means what '''
     def __retrieveDims(self, data):  
         if hasattr(self,'dims'): return
-        self.dims = [False,False,False]  # [numC, numD, N]
-        if np.any(data.shape == self.params.N):               self.dims[2] = True
+        self.dims = [False,False,False]  # [numC, numD, T]
+        if np.any(data.shape == self.params.T):               self.dims[2] = True
         if self.params.numCompartments != self.params.numDepths:
             if np.any(data.shape == self.params.numCompartments): self.dims[0] = True
             if np.any(data.shape == self.params.numDepths):       self.dims[1] = True
@@ -158,14 +158,14 @@ class Plots:
 
     # =========================== PLOT-CALLABLES ==============================               
     ''' plotOverAnother: plot two datasets as x(y) (plot compartments together, depths in subplots)
-            x: independent dataset as 1D [N], 2D [numC, N] or 3D [numC, numD, N] 
+            x: independent dataset as 1D [T], 2D [numC, T] or 3D [numC, numD, T] 
                 (if 3D, will have numC*numD subplots)
-            y: dependent dataset as 1D [N], 2D [numC, N] or 3D [numC, numD, N] 
+            y: dependent dataset as 1D [T], 2D [numC, T] or 3D [numC, numD, T] 
                 (should have at least as many dims as x) 
             xname, yname: axis titles  '''
     def plotOverAnother(self, x, y, xname, yname, title=None):
         # get dims
-        self.__retrieveDims(y)  # get self.dims as prior info which dims are used of [numC, numD, N] 
+        self.__retrieveDims(y)  # get self.dims as prior info which dims are used of [numC, numD, T] 
         numCompartmentsX, numDepthsX = getDims(x, self.dims)
         numCompartmentsY, numDepthsY = getDims(y, self.dims)
         # make sure x and y can be plotted together
