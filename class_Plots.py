@@ -77,6 +77,7 @@ class Plots:
         self.neural = neural
         self.balloon = balloon
         self.bold = bold
+        self.inputTL = neural.inputTL
         for i in [neural, balloon, bold]:
             if i is not None:
                 self.params = i.params
@@ -89,14 +90,15 @@ class Plots:
             OUTPUT: [data from parents, axis title, plot title] '''
     def __getData(self, varname, depth, compartment, title):
         # define cases
-        attrs = ['n', 'f', 'v', 'q', 'bold', 'vaso']  # axis titles
+        attrs = ['n', 'f', 'v', 'q', 'bold', 'vaso', 'stimulus']  # axis titles
         dic = {  # [[possible varnames], title, obj, obj-attribute, dims: [numC, numD, T]]
             attrs[0]: [['n','N'], 'Neuronal Activation Function (excitation)', self.neural, 'n_excitatory', [False,True,True]],
             attrs[1]: [['f', 'F'], 'Flow Response', self.balloon, 'flow', [True,True,True]],
             attrs[2]: [['vo', 'Vo', 'VO'], 'Volume', self.balloon, 'volume', [True,True,True]],  
             attrs[3]: [['q', 'Q', 'ox', 'Ox', 'OX', 'dHb', 'dhb'], 'dHb-content ("q")', self.balloon, 'q', [True,True,True]],
             attrs[4]: [['b', 'B'], 'BOLD-signal', self.bold, 'BOLDsignal', [False,True,True]],
-            attrs[5]: [['va', 'VA', 'Va'], 'VASO-signal', self.bold, 'VASOsignal', [False,True,True]]
+            attrs[5]: [['va', 'VA', 'Va'], 'VASO-signal', self.bold, 'VASOsignal', [False,True,True]],
+            attrs[6]: [['s','S'], 'stimulus', self.inputTL, 'stimulus', [False,True,True]]
         }
         # find current case
         for attr in attrs:
@@ -213,4 +215,8 @@ class Plots:
     ''' plotAll: plot list of data in one call '''
     def plotAll(self, depth=-1, compartment=-1, title='', lst=['neural', 'flow', 'volume', 'q', 'bold', 'vaso']):
         for key in lst: self.plotOverTime(key, depth, compartment=compartment, title=title)
+    
+    ''' plotDataOverTime: plot on input Y over the given timeline '''
+    def plotDataOverTime(self, y, yname='', title=''):
+        self.plotOverAnother(self.time, y, 't', yname=yname, title=title)
 

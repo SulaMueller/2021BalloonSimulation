@@ -16,6 +16,7 @@ from scipy.sparse.linalg import LinearOperator, aslinearoperator
 from class_NeuralParameters import Neural_Parameters
 from class_ModelParameters import Model_Parameters, makeDict
 from class_inputTimeline import Input_Timeline
+from class_Plots import Plots
 
 
 #print('Convolution operator', Cop)
@@ -110,15 +111,12 @@ class Ops_hemodynamicBOLDmodel:
     
     # =================================== DEFINE OPERATORS ================================
     ''' operator and matrix definitions: 
-            I) neural excitation:   X = N @ s
-            II) balloon model:      Y = A @ X
-            III) BOLD signal:       b = B @ Y
-                 total:             b = B @ A @ N @ s
+            I) arterial blood flow from neural excitation:   fa = N @ s
+            II) balloon model:                               Y = A @ fa
+            III) BOLD signal:                                b = B @ Y
+                 total:                                      b = B @ A @ N @ s
             s = [D,T]
-            X = [3,D,T]
-                X[0,:,:] = n_excitation
-                X[1,:,:] = n_inhibition
-                X[2,:,:] = vaso-active signal
+            fa= [D,T]
             Y = [3,K,D,T]
                 Y[0,:,:,:] = flow
                 Y[1,:,:,:] = volume
@@ -131,14 +129,16 @@ class Ops_hemodynamicBOLDmodel:
         self.ops = {}
         # neural operator N
         self.ops['N'] = LinearOperator(
-            shape   = ([D,T], [3,D,T]),
+            shape   = (D*T, D*T),
             matvec  = self.__fun_N,
             rmatvec = self.__fun_N,
             matmat  = self.__fun_N,
             rmatmat = self.__fun_N,
             dtype=np.float   
         )
+        #dottest(self.ops['N'], verb=True)  # check, that forward and adjoint operators are correct
         # balloon operator A 
+        '''
         self.ops['A'] = LinearOperator(
             shape   = (3*D*T, 3*K*D*T),
             matvec  = self.__fun_A,
@@ -155,48 +155,48 @@ class Ops_hemodynamicBOLDmodel:
             matmat  = self.__fun_B,
             rmatmat = self.__fun_B,
             dtype=np.float   
-        )
+        ) '''
         # set flag
         self.__opsFlag = [K,D,T]
 
     # =================================== OPERATOR FUNCTIONS ================================
-    ''' X[0,:,:] = n_excitation
-        X[1,:,:] = n_inhibition
-        X[2,:,:] = vaso-active signal '''
     def __fun_N(self, s):
         p, n = getattr(self,'params'), getattr(self,'nparams')
         D, T, dt = p.numDepths, p.T, p.dt
-        X = np.zeros([3, D, T])
+        ne, ni, vas = np.zeros([D]), np.zeros([D]), np.zeros([D])
+        fa = np.ones([D,T])
         # sp.signal.convolve2d(A,B, 'valid')
+        s = s.reshape([D,T])
         for t in range(1,T):
-            X[0,:,t] = X[0,:,t-1] + dt * (n.sigma * X[0,:,t-1] - n.mu * X[1,:,t-1] + n.C * s[:,t])
-            X[1,:,t] = X[1,:,t-1] + dt * n.lambd * (X[0,:,t-1] - X[1,:,t-1])
-            X[2,:,t] = X[2,:,t-1] + dt * (X[0,:,t-1] - n.c1 * X[2,:,t-1])
-        return X
+            ne_ = ne + dt * (n.sigma * ne - n.mu * ni + n.C * s[:,t])
+            ni_ = ni + dt * n.lambd * (ne - ni)
+            vas = vas + dt * (ne - n.c1 * vas)
+            fa[:,t]  = fa[:,t-1] * np.exp(dt * (n.c2 * vas - n.c3 * (fa[:,t-1] - 1)) / fa[:,t-1])
+            ne, ni = ne_, ni_
+        return fa
 
     ''' Y[0,:,:,:] = flow
         Y[1,:,:,:] = volume
         Y[2,:,:,:] = q '''
-    def __fun_A(self, X):
+    def __fun_A(self, fa):
         p, n, c = getattr(self,'params'), getattr(self,'nparams'), getattr(self,'consts')
         K, D, T, dt = p.numCompartments,  p.numDepths, p.T, p.dt
+        f, f_, v, v_, q = np.ones([K,D+1]), np.ones([K,D+1]), np.ones([K,D+1]), np.ones([K,D+1]), np.ones([K,D+1])
         Y = np.ones([3, K, D+1, T])  # need D+1 to have a deeper layer for deepest layer (factor is 0, though -> value is irrelevant)
-        dv = np.zeros([K,D])  # init flow direction 
-        m = np.zeros([K,D])  # init oxygen extraction
+        dv, m = np.zeros([K-1,D]), np.zeros([K-1,D])
         # initial conditions
-        Y[0,1,0:D,    0] = Y[0,0,0:D,    0] * p.F0[0,:      ]/p.F0[1,:      ]
-        Y[0,2,D-1,    0] = Y[0,1,D-1,    0] * p.F0[1,D-1    ]/p.F0[2,D-1    ]
-        Y[0,2,D-2::-1,0] = Y[0,1,D-2::-1,0] * p.F0[1,D-2::-1]/p.F0[2,D-2::-1] + Y[0,2,D-1:0:-1,0] * p.F0[2,D-1:0:-1]/p.F0[2,D-2::-1]
-        Y[1,1:3,0:D,0] = np.power(Y[0,1:3,0:D,0], p.alpha[1:3,0:D])
+        f[1,0:D] = fa[:,0] * p.F0[0,:]/p.F0[1,:]
+        f[2,D-1]     = f[1,D-1    ] * p.F0[1,D-1]    /p.F0[2,D-1]
+        f[2,D-2::-1] = f[1,D-2::-1] * p.F0[1,D-2::-1]/p.F0[2,D-2::-1] + f[2,D-1:0:-1,0] * p.F0[2,D-1:0:-1]/p.F0[2,D-2::-1]
+        v[1:3,0:D] = np.power(f[1:3,0:D], p.alpha[1:3,0:D])
         # IVP
         for t in range(1,T):
             flowdir = (dv>=0).astype('int')
-            # arterial flow
-            Y[0,0,0:D,t] = Y[0,0,0:D,t-1] * np.exp(dt * (n.c2 * X[2,:,t-1] - n.c3 * (Y[0,0,0:D,t-1] - 1)) / Y[0,0,0:D,t-1])
-            # venule, venous flow
-            Y[0,1:3,0:D,t] = c['D'][1:3,:,flowdir] * np.power(Y[1,1:3,0:D,  t-1], 1/p.alpha[1:3,:]) \
-                           + c['E'][1:3,:,flowdir] *          Y[0,0:2,0:D,  t-1] \
-                           + c['G'][1:3,:,flowdir] *          Y[0,1:3,1:D+1,t-1] 
+            # flow
+            f_[0,0:D] = fa[:,t]
+            f_[1:3,0:D] = c['D'][1:3,:,flowdir] * np.power(v[1:3,0:D], 1/p.alpha[1:3,:]) \
+                        + c['E'][1:3,:,flowdir] * f[0:2,0:D] \
+                        + c['G'][1:3,:,flowdir] * f[1:3,1:D+1] 
             # volume
             dv[1:3,:] = c['K'][1:3,:] * Y[0,1:3,0:D,  t-1] \
                       + c['L'][1:3,:] * Y[0,0:2,0:D,  t-1] \
@@ -223,14 +223,22 @@ class Ops_hemodynamicBOLDmodel:
             , axis=0)  # sum over K
 
     # =================================== CALCULATE MODEL ================================
-    def calculateModel(self, inputTL: Input_Timeline):
+    def forwardModel(self, inputTL: Input_Timeline):
         K,D,T = inputTL.params.numCompartments, inputTL.params.numDepths, inputTL.params.T
         self.__setKDT(K=K, D=D, T=T)
         self.__defineOperators()
-        n = self.ops['N'] @ inputTL.stimulus
-        a = self.ops['A'] @ n
-        b = self.ops['B'] @ a
-        return b
+        n = self.ops['N'] @ inputTL.stimulus.reshape([D*T])
+        #a = self.ops['A'] @ n
+        #b = self.ops['B'] @ a
+        return n.reshape([D,T])
+
+    def inverseModel(self, inputData, plots=None):
+        D,T = self.params.numDepths, self.params.T
+        if inputData.shape != [D,T]: print('Error')
+        self.__defineOperators()
+        s = self.ops['N'].H @ inputData.reshape([D*T])
+        # it appears N.H = N
+        return s.reshape([D,T])
     
 
 

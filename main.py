@@ -114,8 +114,12 @@ for attr in appendix:
     bold = signal.bold
     plots = signal.plots
 
-    OP = Ops_hemodynamicBOLDmodel(neural, params)
-    OP.calculateModel(signal.input_TL)
+    OP = Ops_hemodynamicBOLDmodel(neural.nparams, params)
+    n = OP.forwardModel(signal.input_TL)
+    s = OP.inverseModel(neural.f_arteriole, plots=plots)
+
+    plots.plotDataOverTime(s, 's', 'OP')
+    plots.plotOverTime('stimulus',  title='old model')
     
     # plot
     depth = 2
