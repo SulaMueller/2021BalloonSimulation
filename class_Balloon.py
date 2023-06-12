@@ -26,7 +26,7 @@ class Balloon:
         self.__check_input()
         self.__get_priors()
         self.__get_balloon()
-        clearAttrs(self, ['dq', 'dv', 'flowdir', 'flowscaling'])
+        clearAttrs(self, ['dq', 'dv', 'flowdir'])  # , 'flowscaling'
 
 # ---------------------------------  PREPARATION  -----------------------------------------
     ''' __check_input: make sure, timeline data is given '''
@@ -56,7 +56,7 @@ class Balloon:
     def __init_matrices(self):
         K = self.params.numCompartments
         D = self.params.numDepths
-        T = self.params.T
+        T = self.params.nT
         for attr in ['volume', 'flow', 'q', 'm']:  # init all timelines
             if not hasattr(self, attr): setattr(self, attr, np.ones([K, D, T]) )  
             # use ones, since init values should be 1
@@ -93,24 +93,24 @@ class Balloon:
 
 # ---------------------------------  CALCULATE FLOW  --------------------------------------
     ''' __getCurrentFlowVolume: get part of flow resulting from current, depth/compartment-specific volume '''
-    def __getCurrentFlowVolume(self, k,d,t):
+    def getCurrentFlowVolume(self, k,d,t):
         return self.params.V0[k,d] * pow(self.volume[k,d,t], 1/self.params.alpha[k,d])
     
     ''' __getPreviousCompartmentFlowVolume: get part of flow volume coming from previous compartment '''
-    def __getPreviousCompartmentFlowVolume(self, k,d,t):
+    def getPreviousCompartmentFlowVolume(self, k,d,t):
         return self.params.vet[k,d,self.flowdir] * self.params.F0[self.params.VENULE,d] * self.flow[k-1,d,t]
     
     ''' __getDeeperLayerFlowVolume: get part of flow volume coming from deeper layers '''
-    def __getDeeperLayerFlowVolume(self, k,d,t):
+    def getDeeperLayerFlowVolume(self, k,d,t):
         if not self.__needDeeperLayers(k,d): return 0
         return self.params.vet[k,d,self.flowdir] * self.params.F0[k,d+1] * self.flow[k,d+1,t]
     
     ''' __get_flow: get flow for vein or venule from volume (and write into time line) '''
     def __get_flow(self, k,d,t):
         self.flow[k,d,t] = \
-            (   self.__getCurrentFlowVolume(k,d,t) \
-              + self.__getPreviousCompartmentFlowVolume(k,d,t) \
-              + self.__getDeeperLayerFlowVolume(k,d,t) \
+            (   self.getCurrentFlowVolume(k,d,t) \
+              + self.getPreviousCompartmentFlowVolume(k,d,t) \
+              + self.getDeeperLayerFlowVolume(k,d,t) \
             ) / self.flowscaling[k,d,self.flowdir]
             # deeperLayer only for vein
 
@@ -235,9 +235,8 @@ class Balloon:
         # init values at start
         self.__init_matrices()  # flow, v, q are set to 1, dv is set to 0
         self.__init_values()  # make sure steady-state conditions are met
-        
         # go through time course
-        for t in range(0, self.params.T - 1):
+        for t in range(0, self.params.nT - 1):
             for k in range(self.params.VENULE, self.params.numCompartments):
                 for d in range(self.params.numDepths-1, -1, -1):
                     self.__get_oneLayer(k,d,t)

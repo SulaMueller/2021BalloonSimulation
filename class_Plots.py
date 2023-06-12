@@ -10,7 +10,7 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-from warnings import warn
+from warnUsr import warn
 from class_ModelParameters import clearAttrs
 from class_NeuralModel import Neural_Model
 from class_Balloon import Balloon
@@ -54,17 +54,17 @@ def getDims(data, selfdims=None):
 ''' checkDimsMatch: check if x and y have same length '''
 def checkDimsMatch(x, y, xname, yname):
     if x.shape[-1] != y.shape[-1]:
-        warn(f"SHAPE ERROR: plotOverAnother({xname}({yname})) -> {xname} and {yname} need same length.")
+        warn(f'SHAPE ERROR: plotOverAnother({xname}({yname})) -> {xname} and {yname} need same length.')
         return False
     if x.ndim > y.ndim:
-        warn(f"SHAPE ERROR: plotOverAnother({xname}({yname})) -> {xname} needs at most as many dims as {yname}.")
+        warn(f'SHAPE ERROR: plotOverAnother({xname}({yname})) -> {xname} needs at most as many dims as {yname}.')
         return False
     return True
 
 ''' checkShapesMatch check, that number of depths+compartments are either identical or 1 for x,y '''
 def checkShapesMatch(numCompartmentsX, numDepthsX, numCompartmentsY, numDepthsY, xname, yname):
     if (numCompartmentsX != numCompartmentsY and numCompartmentsX != 1) or (numDepthsX != numDepthsY and numDepthsX != 1):
-        warn(f"SHAPE ERROR: plotOverAnother({xname}({yname})) -> size({xname}) needs to be 1 or same as {yname} on every dim.")
+        warn(f'SHAPE ERROR: plotOverAnother({xname}({yname})) -> size({xname}) needs to be 1 or same as {yname} on every dim.')
         return False
     return True
 
@@ -81,7 +81,7 @@ class Plots:
         for i in [neural, balloon, bold]:
             if i is not None:
                 self.params = i.params
-                self.time = np.linspace(0, self.params.T, self.params.T)
+                self.time = np.linspace(0, self.params.nT, self.params.nT)
                 break
     
     # =========================== FETCH DATA ==============================
@@ -107,7 +107,7 @@ class Plots:
                 break
         # if no case found
         if not 'flag' in locals():
-            warn(f"ERROR: BallonPlots.plotOverTime: unknown variable name {varname}.")
+            warn(f'ERROR: BallonPlots.plotOverTime: unknown variable name {varname}.')
             return 0,'', ''
         # init title
         if len(title) > 0: comma = ', '
@@ -120,13 +120,13 @@ class Plots:
         # cut data to specific depth and compartment
         numCompartments, numDepths = getDims(data)
         if compartment > -1 and numCompartments > 1: 
-            data = np.resize(data, (numCompartments, numDepths, self.params.T))
+            data = np.resize(data, (numCompartments, numDepths, self.params.nT))
             data = data[compartment, :, :]
             numCompartments = 1
             self.dims[0] = False
             title = f"{title}, {self.params.COMPARTMENTS[compartment]}"
         if depth > -1 and numDepths > 1:
-            data = np.resize(data, (numCompartments, numDepths, self.params.T))
+            data = np.resize(data, (numCompartments, numDepths, self.params.nT))
             data = data[:, depth, :]
             self.dims[1] = False
             title = f"{title}, depth={depth}"
@@ -136,7 +136,7 @@ class Plots:
     def __retrieveDims(self, data):  
         if hasattr(self,'dims'): return
         self.dims = [False,False,False]  # [numC, numD, T]
-        if np.any(data.shape == self.params.T):               self.dims[2] = True
+        if np.any(data.shape == self.params.nT):               self.dims[2] = True
         if self.params.numCompartments != self.params.numDepths:
             if np.any(data.shape == self.params.numCompartments): self.dims[0] = True
             if np.any(data.shape == self.params.numDepths):       self.dims[1] = True

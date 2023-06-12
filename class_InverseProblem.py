@@ -11,7 +11,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from class_SignalModel import Signal_Model
+from class_IterativeModel import Iterative_Model
 from class_ModelParameters import Model_Parameters
 from class_NeuralParameters import Neural_Parameters
 from class_inputTimeline import Input_Timeline
@@ -24,7 +24,7 @@ from pylops.utils import dottest
 from pylops.optimization.basic import lsqr
 
 class InverseProblem:
-    def __init__(self, signal:Signal_Model, params:Model_Parameters, signaltype='BOLD'):
+    def __init__(self, signal:Iterative_Model, params:Model_Parameters, signaltype='BOLD'):
         self.signal = signal
         self.params = params
         # get flow from signal

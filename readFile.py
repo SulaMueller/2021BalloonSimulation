@@ -117,6 +117,19 @@ def readMatrixFromText(filetext, valuename, numCompartments=-1, numDepths=-1, nV
     else: return outmatrix, header, colcaps
 
 
+''' readFiles: read given parameter files to create parameter dictionaries '''
+def readFiles(parameter_file, neural_parameter_file, input_function_file):
+    from class_ModelParameters import Model_Parameters
+    from class_NeuralParameters import Neural_Parameters
+    from class_inputTimeline import Input_Timeline
+    neural_params = Neural_Parameters(neural_parameter_file)
+    params = Model_Parameters(parameter_file)
+    input_TL = Input_Timeline(params, input_function_file)
+    # timeline needs params only for T,numCompartments -> assume those won't be changed
+    return params, neural_params, input_TL
+    
+
+
 
 
 

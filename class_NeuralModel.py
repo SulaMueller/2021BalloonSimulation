@@ -40,10 +40,10 @@ class Neural_Model:
 
     ''' __init_matrices: initialize all matrices needed for neural model calculation '''
     def __init_matrices(self):
-        self.n_excitatory = np.zeros([self.params.numDepths, self.params.T])
-        self.n_inhibitory = np.zeros([self.params.numDepths, self.params.T])
-        self.vas = np.zeros([self.params.numDepths, self.params.T])
-        self.f_arteriole = np.ones([self.params.numDepths, self.params.T])
+        self.n_excitatory = np.zeros([self.params.numDepths, self.params.nT])
+        self.n_inhibitory = np.zeros([self.params.numDepths, self.params.nT])
+        self.vas = np.zeros([self.params.numDepths, self.params.nT])
+        self.f_arteriole = np.ones([self.params.numDepths, self.params.nT])
 
     def __getExcitatory(self, d,t):
         #yn(:,1)   = yn(:,1) + dt*(A*Xn(:,1) - MU.*Xn(:,2) + C*U.u(t,:)');
@@ -79,7 +79,7 @@ class Neural_Model:
     ''' __get_neuralModel: calculate neural model from given model parameters and neural input function '''    
     def __get_neuralModel(self):
         self.__init_matrices()
-        for t in range(1, self.params.T):
+        for t in range(1, self.params.nT):
             for d in range(0, self.params.numDepths):
                 self.__getExcitatory(d,t)
                 self.__getInhibitory(d,t)

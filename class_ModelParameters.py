@@ -49,7 +49,7 @@ class readableVarClass:
     def __init__(self):
         self.readableVars = {  # attrname: [name for read-in, defaultVal, throw exception if missing, changeable, type/nVar]
             nameClass.single : {
-                'T' : ["number of time points", -1, True, False, 'int'],
+                'nT' : ["number of time points", -1, True, False, 'int'],
                 'dt' : ["time integration step (dt)", 0.01, False, True, 'float'],
                 'numDepths' : ["number of depth levels", -1, False, False, 'int'],
             },
@@ -66,7 +66,8 @@ class readableVarClass:
                 nameClass.single : {
                     'B0' : ['B0', -1, False, True, 'float'],
                     'dXi': ['dXi', -1, False, True, 'float'], 
-                    'TE': ['TE_', -1, False, True, 'float']
+                    'TE': ['TE_', -1, False, True, 'float'], 
+                    'TR': ['TR_', 1, False, True, 'float']
                 },
                 nameClass.matrix : {
                     'epsilon' : ['epsilon', -1, False, True, 0],

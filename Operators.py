@@ -36,11 +36,11 @@ class Ops_hemodynamicBOLDmodel:
         # check cases
         k = K>0 and K != self.params.numCompartments
         d = D>0 and D != self.params.numDepths
-        t = T>0 and T != self.params.T
+        t = T>0 and T != self.params.nT
         # set parameters
         if k: self.params.numCompartments = K
         if d: self.params.numDepths = D
-        if t: self.params.T = T
+        if t: self.params.nT = T
         # run following operations
         if (k or d) and setConsts or init: self.__defineConstants()
         if (k or d or t) and setOps: self.__defineOperators()
@@ -124,7 +124,7 @@ class Ops_hemodynamicBOLDmodel:
             b = [D,T] '''
     def __defineOperators(self):
         p = getattr(self,'params')
-        K, D, T = p.numCompartments, p.numDepths, p.T
+        K, D, T = p.numCompartments, p.numDepths, p.nT
         if self.__opsFlag == [K,D,T]: return
         self.ops = {}
         # neural operator N
@@ -162,7 +162,7 @@ class Ops_hemodynamicBOLDmodel:
     # =================================== OPERATOR FUNCTIONS ================================
     def __fun_N(self, s):
         p, n = getattr(self,'params'), getattr(self,'nparams')
-        D, T, dt = p.numDepths, p.T, p.dt
+        D, T, dt = p.numDepths, p.nT, p.dt
         ne, ni, vas = np.zeros([D]), np.zeros([D]), np.zeros([D])
         fa = np.ones([D,T])
         # sp.signal.convolve2d(A,B, 'valid')
@@ -180,7 +180,7 @@ class Ops_hemodynamicBOLDmodel:
         Y[2,:,:,:] = q '''
     def __fun_A(self, fa):
         p, n, c = getattr(self,'params'), getattr(self,'nparams'), getattr(self,'consts')
-        K, D, T, dt = p.numCompartments,  p.numDepths, p.T, p.dt
+        K, D, T, dt = p.numCompartments,  p.numDepths, p.nT, p.dt
         f, f_, v, v_, q = np.ones([K,D+1]), np.ones([K,D+1]), np.ones([K,D+1]), np.ones([K,D+1]), np.ones([K,D+1])
         Y = np.ones([3, K, D+1, T])  # need D+1 to have a deeper layer for deepest layer (factor is 0, though -> value is irrelevant)
         dv, m = np.zeros([K-1,D]), np.zeros([K-1,D])
@@ -215,7 +215,7 @@ class Ops_hemodynamicBOLDmodel:
         Y[2,:,:,:] = q  '''
     def __fun_B(self, Y):
         p, c = getattr(self,'params'), getattr(self,'consts')
-        K, D, T, = p.numCompartments,  p.numDepths, p.T
+        K, D, T, = p.numCompartments,  p.numDepths, p.nT
         return np.sum( \
                 c['A'].reshape(K,D,1).repeat(T,2) * (1-Y[2,:,0:D,:]) + \
                 c['B'].reshape(K,D,1).repeat(T,2) * (1-Y[2,:,0:D,:]/Y[1,:,0:D,:]) + \
@@ -224,7 +224,7 @@ class Ops_hemodynamicBOLDmodel:
 
     # =================================== CALCULATE MODEL ================================
     def forwardModel(self, inputTL: Input_Timeline):
-        K,D,T = inputTL.params.numCompartments, inputTL.params.numDepths, inputTL.params.T
+        K,D,T = inputTL.params.numCompartments, inputTL.params.numDepths, inputTL.params.nT
         self.__setKDT(K=K, D=D, T=T)
         self.__defineOperators()
         n = self.ops['N'] @ inputTL.stimulus.reshape([D*T])
@@ -233,7 +233,7 @@ class Ops_hemodynamicBOLDmodel:
         return n.reshape([D,T])
 
     def inverseModel(self, inputData, plots=None):
-        D,T = self.params.numDepths, self.params.T
+        D,T = self.params.numDepths, self.params.nT
         if inputData.shape != [D,T]: print('Error')
         self.__defineOperators()
         s = self.ops['N'].H @ inputData.reshape([D*T])

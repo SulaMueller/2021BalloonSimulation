@@ -46,18 +46,18 @@ class Input_Timeline:
         numAxis = 2  # time, value
         timeaxis = 0
         valueaxis = 1
-        sections = readMatrixFromText(self.filetext, 'type of input', numAxis, self.params.numDepths)
-        numSections = sections.shape[2]
+        self.sections = readMatrixFromText(self.filetext, 'type of input', numAxis, self.params.numDepths)
+        numSections = self.sections.shape[2]
 
         # read individual sections
-        entire_timeline = np.empty([self.params.numDepths, self.params.T])
+        entire_timeline = np.empty([self.params.numDepths, self.params.nT])
         for d in range(0, self.params.numDepths):
             for s in range(0, numSections):
-                t0 = int(sections[timeaxis, d, s])  # starting time point
-                if s < numSections - 1: t1 = int(sections[timeaxis, d, s+1])
-                else: t1 = self.params.T  # ending time point
-                if t0 < self.params.T:
-                    entire_timeline[d, t0:t1] = sections[valueaxis, d, s]
+                t0 = int(self.sections[timeaxis, d, s])  # starting time point
+                if s < numSections - 1: t1 = int(self.sections[timeaxis, d, s+1])
+                else: t1 = self.params.nT  # ending time point
+                if t0 < self.params.nT:
+                    entire_timeline[d, t0:t1] = self.sections[valueaxis, d, s]
         
         # write timeline to matching structure
         input_type = readValFromText(self.filetext, 'type of input', 'str')
@@ -66,14 +66,15 @@ class Input_Timeline:
         for i in range(0, len(self.INPUT_TYPES)):
             if self.INPUT_TYPES[i] in input_type or input_type in self.INPUT_TYPES[i]: 
                 self.set_input(entire_timeline, i)
+                self.input_type = self.INPUT_TYPES[i]
                 break
     
     def read_cmro(self, cmro_file):
         if cmro_file is None: return
         filetext = getFileText(cmro_file)
         lines = filetext.splitlines()  # get array of lines
-        self.cmro2 = np.zeros([self.params.numDepths, self.params.T])
-        for i in range(0, self.params.T):
+        self.cmro2 = np.zeros([self.params.numDepths, self.params.nT])
+        for i in range(0, self.params.nT):
             line = lines[i]
             self.cmro2[i] = float(line)
             # >> implement here, what needs to be done for each line <<

@@ -9,11 +9,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from class_SignalModel import Signal_Model
+from class_IterativeModel import Iterative_Model
 
 
 class DependencyGenerator:
-    def __init__(self, parent:Signal_Model):
+    def __init__(self, parent:Iterative_Model):
         self.parent = parent
     
     ''' calculateDependency: plot the dependency of BOLD/VASO-signal (depth-wise) on a variable <varname> 
