@@ -76,12 +76,12 @@ class Y_Properties:
         self.indice = dict()
         self.y0 = np.zeros( (len(self.funnames) + len(self.compartmented)*(len(self.compartments)-1) ) * self.params.numDepths)
         index = 0
-        for f, funname in enumerate(self.funnames):
+        for funname in self.funnames:
             if funname in self.compartmented: K = len(self.compartments)
             else: K = 1
             for k in range(0, K):
                 for d in range(0, self.params.numDepths):
-                    self.__defineInitValue(self.funnames[f], k, d, index)
+                    self.__defineInitValue(funname, k, d, index)
                     index = index + 1
 
     def __setInitValue(self, funname, k, d, index, y0): 
