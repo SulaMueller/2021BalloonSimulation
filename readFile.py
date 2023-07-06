@@ -118,15 +118,32 @@ def readMatrixFromText(filetext, valuename, numCompartments=-1, numDepths=-1, nV
 
 
 ''' readFiles: read given parameter files to create parameter dictionaries '''
-def readFiles(parameter_file, neural_parameter_file, input_function_file):
+def readFiles(parameter_file, neural_parameter_file=None, input_function_file=None):
     from class_ModelParameters import Model_Parameters
     from class_NeuralParameters import Neural_Parameters
     from class_inputTimeline import Input_Timeline
-    neural_params = Neural_Parameters(neural_parameter_file)
     params = Model_Parameters(parameter_file)
-    input_TL = Input_Timeline(params, input_function_file)
+    if neural_parameter_file is not None: neural_params = Neural_Parameters(neural_parameter_file)
+    else: neural_params = None
+    if input_function_file is not None: input_TL = Input_Timeline(params, input_function_file)
+    else: input_TL = None
     # timeline needs params only for T,numCompartments -> assume those won't be changed
     return params, neural_params, input_TL
+
+''' readFile: read a single file to create fitting parameter dictionary '''
+def readFile(parameter_file=None, neural_parameter_file=None, input_function_file=None, params=None):
+    from class_ModelParameters import Model_Parameters
+    from class_NeuralParameters import Neural_Parameters
+    from class_inputTimeline import Input_Timeline
+    if parameter_file is not None: res = Model_Parameters(parameter_file)
+    if neural_parameter_file is not None: res = Neural_Parameters(neural_parameter_file)
+    if input_function_file is not None: 
+        if params is not None: res = Input_Timeline(params, input_function_file)
+        else:
+            warn('readFile: to read input_function_file, params object is required as input.')
+            res = None
+    return res
+
     
 
 

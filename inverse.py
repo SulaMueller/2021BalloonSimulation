@@ -123,8 +123,8 @@ class hemodynamic_model_inverse:
         nT_S_test = np.int32(np.ceil(T_test/dt_S))
         T_test = nT_S_test * dt_S  # correct for overtime
         self.p_S_test = Matrix_Parameters(dt=dt_S, nT=nT_S_test, D=self.p_data.D, require_nT=True)  # parameters for the test stimulus
-        nT_S_total = np.int32(np.ceil(T_total/dt_S))
-        self.p_S_total = Matrix_Parameters(dt=dt_S, nT=nT_S_total, D=self.p_data.D, require_nT=True)  # parameters for the entire stimulus
+        nT_S_coarse = np.int32(np.ceil(T_total/dt_S))
+        self.p_S_coarse = Matrix_Parameters(dt=dt_S, nT=nT_S_coarse, D=self.p_data.D, require_nT=True)  # parameters for the entire stimulus
         # get model parameters for test window (partial model)
         self.__setModelParams(dt=self.params.dt, nT=T_test/self.params.dt, D=self.p_data.D)  # create self.p_model and self.IVP with fitting D, dt
         return T_total, T_test, T_vary
@@ -207,8 +207,8 @@ class hemodynamic_model_inverse:
         T_total, T_test, T_vary = self.__getMatrixParams(data, aPriori, numTestPoints, dt_data)
         # get number of points for required matrice
         nT_S_vary__model = np.int32(np.round(T_vary/self.p_model.dt))  # number of points in stimulus__model that vary (-> combo)
-        numTestPoints = min(numTestPoints, self.p_S_total.nT)
-        numWindows = self.p_S_total.nT - numTestPoints + 1  # number of sliding test windows, can be decreased by number of data points in window
+        numTestPoints = min(numTestPoints, self.p_S_coarse.nT)
+        numWindows = self.p_S_coarse.nT - numTestPoints + 1  # number of sliding test windows, can be decreased by number of data points in window
         # init test stimuli
         S_test__model = np.zeros(self.p_model.nT)  # upsampled test stimulus; model.nT ~ T_test
         combinations = self.__getCombinations(numTestPoints)  # get all possible combinations of test points
@@ -217,7 +217,7 @@ class hemodynamic_model_inverse:
             warn('test if combinations are deleted')
         aPriori__S = aPriori.convert(conversionFactor=1/self.p_S_test.dt, unitName='dt_S')  # convert from [seconds] to [dt_S] -> number of points in stimulus
         S_estimate_tmp = np.zeros([numTestPoints, numTestPoints])  # saves all estimated points for each window -> average them later
-        S_estimate_coarse = np.zeros(self.p_S_total.nT)  # result of coarse estimation
+        S_estimate_coarse = np.zeros(self.p_S_coarse.nT)  # result of coarse estimation
         # for each sliding window
         y0 = self.IVP.y_properties.y0  # init for IVP
         for firstTestPoint in range(0, numWindows):
@@ -248,19 +248,91 @@ class hemodynamic_model_inverse:
         for point in range(numWindows, numWindows+numTestPoints-1):
             S_estimate_coarse[point] = self.__averagePoint(S_estimate_tmp, firstRow=point-numWindows+1, lastRow=numTestPoints-1, isEnd=True)
         return S_estimate_coarse, T_total
+    
+    def __shiftEdgeOfStimulus(self, S_estimate_fine, firstPoint, lastPoint, dir, index_start_fine, index_end_fine, dt_stimulus, y0_start, y0_next, RMSE, indice_model, data_partial):
+        if dir == 'forward': step = 1
+        else: step = -1
+        index_next_tmp = lastPoint  # have a default value
+        for i in range(firstPoint, lastPoint):
+            S_estimate__model = upsample(S_estimate_fine[index_start_fine:index_end_fine+1], (index_end_fine-index_start_fine+1) * dt_stimulus / self.p_model.dt)
+            signal, y0_tmp = self.calculateForwardModel(S_estimate__model, y0=y0_start)
+            RMSE_new = self.__getFitError(signal[:,1:][:,indice_model], data_partial)
+            if RMSE_new > RMSE:
+                index_next_tmp = i-step
+                S_estimate_fine[index_next_tmp] = 1
+                break
+            else:
+                y0_next = y0_tmp  # take it here, so there is one in any case
+                RMSE = RMSE_new
+                S_estimate_fine[i] = 0
+        return S_estimate_fine, y0_next, RMSE, index_next_tmp
+    
+    ''' __estimateFine: find the exact positions of stimuli on a higher resolved grid '''
+    def __estimateFine(self, S_estimate_coarse, data, aPriori: aPriori, T_total, dt_stimulus):
+        if self.verbose: print(f'------------- STEP II (FINE) --------------- ')
+        if dt_stimulus is None: dt_stimulus = 0.1  # [s]
+        # prepare signal
+        S_estimate_fine = upsample(S_estimate_coarse, T_total/dt_stimulus)
+        
+        # prepare stimuli
+        S_indice = [x for x in np.arange(len(S_estimate_coarse)) if S_estimate_coarse[int(x)] == 1]  # find indice of all S==1
+        i_indice = 0  # index in list of indice
+        y0_next = self.IVP.y_properties.y0  # init for IVP
+        i_t0 = 0  # start time for IVP (index in stimulus time frame)
+        # for each active stimulus section (uninterrupted chain of ones)
+        while i_indice < len(S_indice):
+            # get number of coarse stimulus points
+            index_start_coarse = S_indice[i_indice]
+            for i in range(index_start_coarse, len(S_estimate_coarse)+1):
+                if i == len(S_estimate_coarse): break
+                if S_estimate_coarse[i] == 0: break 
+            len_S = i - index_start_coarse
+
+            # continue here, tested til here
+
+            # assume t(S) is at max one data point off -> get surroundings as well
+            index_end_coarse = min(len(S_estimate_coarse)-1, index_start_coarse + len_S)  # one point behind the last 1
+            index_start_coarse = max(0, index_start_coarse-1)  # one point before the first 1
+            index_start_fine = index_start_coarse * self.p_S_coarse.dt / dt_stimulus
+            index_end_fine = index_end_coarse * self.p_S_coarse.dt / dt_stimulus
+            S_estimate_fine[index_start_fine:index_end_fine+1] = 1  # set entire window to 1
+            # solve IVP for part before current stimulus (/ between stimuli)
+            S_estimate__model = upsample(S_estimate_fine[i_t0:index_start_fine], (index_start_fine-i_t0) * dt_stimulus / self.p_model.dt)
+            _, y0_start = self.calculateForwardModel(S_estimate__model, y0=y0_next)
+            i_t0 = index_end_fine+1  # start of gap for next iteration
+            # prepare RMSE
+            timeaxis_data, i_start_data, i_end_data = self.__getTimeAxisOfData(firstTestPoint, T_test, T_total)  # get time signatures of all data points that lie within T_test
+            data_partial = data[:, i_start_data:i_end_data+1]
+            indice_model = self.__convertDataAxisToModelIndice(timeaxis_data)  # time points within T_test that have signal points close to corresponding data points
+            # prepare sliders
+            RMSE = self.p_model.nT  # init with large number
+            y0_next = None  # should get inited in 'forward' since RMSE has large init
+            # slide start point to the right until error gets worse
+            S_estimate_fine, y0_next, RMSE, index_start_tmp = self.__shiftEdgeOfStimulus(S_estimate_fine, index_start_fine, index_end_fine, 'forward', index_start_fine, index_end_fine, dt_stimulus, y0_start, y0_next, RMSE, indice_model, data_partial)
+            # slide end point to the left until error gets worse
+            S_estimate_fine, y0_next, RMSE, index_end_tmp = self.__shiftEdgeOfStimulus(S_estimate_fine, index_end_fine, index_start_tmp, 'backward', index_start_fine, index_end_fine, dt_stimulus, y0_start, y0_next, RMSE, indice_model, data_partial)
+            # toggle start point again
+            S_estimate_fine, y0_next, RMSE, index_start_tmp = self.__shiftEdgeOfStimulus(S_estimate_fine, index_start_tmp, index_end_tmp, 'forward', index_start_fine, index_end_fine, dt_stimulus, y0_start, y0_next, RMSE, indice_model, data_partial)
+            S_estimate_fine, y0_next, RMSE, index_start_tmp = self.__shiftEdgeOfStimulus(S_estimate_fine, index_start_tmp, index_start_fine, 'backward', index_start_fine, index_end_fine, dt_stimulus, y0_start, y0_next, RMSE, indice_model, data_partial)
+            # toggle end point again
+            S_estimate_fine, y0_next, RMSE, index_end_tmp = self.__shiftEdgeOfStimulus(S_estimate_fine, index_end_tmp, index_start_tmp, 'backward', index_start_fine, index_end_fine, dt_stimulus, y0_start, y0_next, RMSE, indice_model, data_partial)
+            S_estimate_fine, y0_next, RMSE, index_end_tmp = self.__shiftEdgeOfStimulus(S_estimate_fine, index_end_tmp, index_end_fine, 'forward', index_start_fine, index_end_fine, dt_stimulus, y0_start, y0_next, RMSE, indice_model, data_partial)
+
+            # go to next active stimulus section
+            i_indice = i_indice + len_S  
+        return S_estimate_fine
 
     # data should be [D, nT]
     # time frames: __model, __S, __data
     # notation: __model -> matched to time frame of model (etc); if no __x -> native time frame
     def estimateStimulus(self, data, aPriori: aPriori, \
-                         coarseTestPoints=3, dt_data=None, return_size='data'):  # return_size in ['model', 'data']
+                         coarseTestPoints=2, dt_data=None, dt_stimulus=None):  # return_size in ['model', 'data']
         if self.verbose: print(f'------------- ESTIMATING STIMULUS --------------- ')
-        S_estimate_coarse, T_total = self.__estimateCoarse(data, aPriori, coarseTestPoints, dt_data)
-        # todo: fine estimation
-        if return_size == 'model': S_estimate_coarse = upsample(S_estimate_coarse, T_total/self.p_model.dt)
+        S_estimate, T_total = self.__estimateCoarse(data, aPriori, coarseTestPoints, dt_data)
+        S_estimate = self.__estimateFine(S_estimate, data, aPriori, T_total, dt_stimulus)
+        S_estimate = upsample(S_estimate, T_total/self.p_model.dt)
         if self.verbose: print(f'         FINISHED STIMULUS ESTIMATION.')
-        if self.verbose: print(f'         estimated stimulus = {S_estimate_coarse}\n')
-        return S_estimate_coarse
+        return S_estimate
 
     def testEstimator(self, stimulus_hi, aPriori: aPriori, noise_level=0.2, noise_type='additive', nIt=5):
         if self.verbose: print(f'------------- TESTING ESTIMATOR --------------- ')
@@ -281,9 +353,9 @@ class hemodynamic_model_inverse:
             # get noisy data
             if noise_type == 'additive': noise = (np.random.random([self.params.numDepths, nT_data_lo])-0.5) * (np.max(data_clean_lo)-np.min(data_clean_lo)) * noise_level
             data_noisy_lo = data_clean_lo + noise
-            estimated_stimulus_hi = self.estimateStimulus(data_noisy_lo, aPriori, dt_data=dt_data_lo, coarseTestPoints=2, return_size='model')
+            estimated_stimulus_hi = self.estimateStimulus(data_noisy_lo, aPriori, dt_data=dt_data_lo, coarseTestPoints=2)
             estimated_data_hi = self.calculateForwardModel(estimated_stimulus_hi)
-            estimated_stimulus_hi2 = self.estimateStimulus(data_noisy_lo, aPriori, dt_data=dt_data_lo, coarseTestPoints=2, return_size='model')
+            estimated_stimulus_hi2 = self.estimateStimulus(data_noisy_lo, aPriori, dt_data=dt_data_lo, coarseTestPoints=2)
             estimated_data_hi2 = self.calculateForwardModel(estimated_stimulus_hi2)
             # plot estimates
             plotManyFunctions(fig_overview[0], estimated_stimulus_hi, t1=t_end, label=f'estimate {i}', linestyle='dashed')
@@ -298,11 +370,24 @@ class hemodynamic_model_inverse:
         if self.verbose: print(f'------------- FINISHED TEST ----------------- ')
     
     # todo: 
-    #   calculate (and fit) model longer than stimulus window
     #   add fine-tuning of signal [0 1 0] -> [ 0 0 0 1 1 1 0 0 0] or [0 0 1 1 1 1 0 0 0] etc
     #       search window = [foundPoint[0]-TR:foundPoint[-1]+TR]
     #   fine-tune signal depth-wise
-            
+
+def getStimulusLen(S_estimate_coarse):        
+        S_indice = [x for x in np.arange(len(S_estimate_coarse)) if S_estimate_coarse[int(x)] == 1]  # find indice of all S==1
+        # for each active stimulus section (uninterrupted chain of ones)
+        i_indice = 0  # index in list of indice
+        while i_indice < len(S_indice):
+            # get length of stimulus
+            index_start = S_indice[i_indice]
+            for i in range(index_start, len(S_estimate_coarse)+1):
+                if i == len(S_estimate_coarse): break
+                if S_estimate_coarse[i] == 0: break 
+            len_S = i - index_start
+            i_indice = i_indice + len_S  # go to next active stimulus section
+
+
 
 ''' =============================  EXECUTE ======================== '''
 if __name__ == '__main__':
